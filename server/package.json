@@ -1,0 +1,36 @@
+{
+  "name": "agentwatch-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "tsx watch src/dev.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx src/db/migrate.ts",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "drizzle-orm": "^0.44.2",
+    "firebase-admin": "^13.4.0",
+    "hono": "^4.9.2",
+    "postgres": "^3.4.5",
+    "resend": "^4.7.0"
+  },
+  "devDependencies": {
+    "@hono/node-server": "^1.14.0",
+    "@types/node": "^22.15.0",
+    "drizzle-kit": "^0.31.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  }
+}
