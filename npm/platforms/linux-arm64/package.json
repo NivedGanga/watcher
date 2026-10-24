@@ -1,0 +1,15 @@
+{
+  "name": "@agentwatch/linux-arm64",
+  "version": "0.1.0",
+  "description": "Prebuilt agentwatch binary for linux arm64",
+  "license": "Apache-2.0",
+  "os": ["linux"],
+  "cpu": ["arm64"],
+  "files": ["bin"],
+  "publishConfig": { "access": "public" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NivedGanga/watcher.git",
+    "directory": "npm/platforms/linux-arm64"
+  }
+}

@@ -1,0 +1,91 @@
+name: npm-release
+
+# Build platform binaries with PyInstaller and publish @agentwatch/* + the
+# `agentwatch` launcher package. Trigger by pushing a tag like `npm-v0.1.0`
+# or running the workflow manually. Requires the NPM_TOKEN repo secret.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (e.g. 0.1.0)"
+        required: true
+  push:
+    tags: ["npm-v*"]
+
+jobs:
+  build-binaries:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: macos-14,       target: darwin-arm64 }
+          - { runner: macos-13,       target: darwin-x64 }
+          - { runner: ubuntu-latest,  target: linux-x64 }
+          - { runner: ubuntu-24.04-arm, target: linux-arm64 }
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build binary
+        run: bash npm/build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bin-${{ matrix.target }}
+          path: npm/platforms/${{ matrix.target }}/bin/agentwatch
+
+  publish:
+    needs: build-binaries
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # npm provenance
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Resolve version
+        id: v
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "version=${GITHUB_REF_NAME#npm-v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: bin-*
+
+      - name: Place binaries
+        run: |
+          for d in bin-*; do
+            t="${d#bin-}"
+            mkdir -p "npm/platforms/$t/bin"
+            cp "$d/agentwatch" "npm/platforms/$t/bin/agentwatch"
+            chmod +x "npm/platforms/$t/bin/agentwatch"
+          done
+
+      - name: Stamp versions
+        run: |
+          for p in npm/platforms/*/package.json npm/agentwatch/package.json; do
+            npm version "${{ steps.v.outputs.version }}" --no-git-tag-version \
+              --prefix "$(dirname "$p")" --allow-same-version
+          done
+
+      - name: Publish platform packages
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          for p in npm/platforms/*/; do
+            npm publish "$p" --access public --provenance
+          done
+
+      - name: Publish launcher
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish npm/agentwatch --access public --provenance

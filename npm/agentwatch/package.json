@@ -1,0 +1,26 @@
+{
+  "name": "agentwatch",
+  "version": "0.1.0",
+  "description": "Wrap terminal agents and get push/email alerts on completion, failure, questions, timeouts, and stalls.",
+  "license": "Apache-2.0",
+  "keywords": ["agent", "monitoring", "alerts", "cli", "devtools"],
+  "bin": {
+    "agentwatch": "bin/agentwatch.cjs"
+  },
+  "files": ["bin"],
+  "os": ["darwin", "linux"],
+  "engines": {
+    "node": ">=16"
+  },
+  "optionalDependencies": {
+    "@agentwatch/darwin-arm64": "0.1.0",
+    "@agentwatch/darwin-x64": "0.1.0",
+    "@agentwatch/linux-x64": "0.1.0",
+    "@agentwatch/linux-arm64": "0.1.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NivedGanga/watcher.git",
+    "directory": "npm/agentwatch"
+  }
+}

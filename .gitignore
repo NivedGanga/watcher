@@ -23,3 +23,8 @@ build/
 dist/
 .vercel/
 __pycache__/
+# built binaries — produced by npm/build.sh or CI
+npm/platforms/*/bin/agentwatch
+cli/dist/
+cli/build/
+*.spec
