@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// Resolves the platform-specific @agentwatch-tool/* optional dependency and
+// Resolves the platform-specific agentwatch-tool-* optional dependency and
 // execs the bundled binary with identical stdio (pty passthrough included).
 const { spawnSync } = require('node:child_process');
 const { createRequire } = require('node:module');
 const path = require('node:path');
 
-const id = `@agentwatch-tool/${process.platform}-${process.arch}`;
+const id = `agentwatch-tool-${process.platform}-${process.arch}`;
 const req = createRequire(__filename);
 
 let binPath;

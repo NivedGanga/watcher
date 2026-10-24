@@ -13,10 +13,10 @@
     "node": ">=16"
   },
   "optionalDependencies": {
-    "@agentwatch-tool/darwin-arm64": "0.1.0",
-    "@agentwatch-tool/darwin-x64": "0.1.0",
-    "@agentwatch-tool/linux-x64": "0.1.0",
-    "@agentwatch-tool/linux-arm64": "0.1.0"
+    "agentwatch-tool-darwin-arm64": "0.1.0",
+    "agentwatch-tool-darwin-x64": "0.1.0",
+    "agentwatch-tool-linux-x64": "0.1.0",
+    "agentwatch-tool-linux-arm64": "0.1.0"
   },
   "repository": {
     "type": "git",
