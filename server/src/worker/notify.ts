@@ -133,6 +133,7 @@ export async function executeDelivery(
         3600,
       );
       await repo.markDelivery(db, delivery.id, { status: 'sent', sentAt: now });
+      log.info('push sent', { deliveryId: delivery.id, deviceId: device.id });
     } catch (err) {
       if (err instanceof NotRegistered) {
         await repo.markDelivery(db, delivery.id, {
