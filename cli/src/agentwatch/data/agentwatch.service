@@ -1,0 +1,10 @@
+[Unit]
+Description=AgentWatch daemon (delivers queued events and heartbeats)
+
+[Service]
+ExecStart=__AGENTWATCH_EXECUTABLE__ daemon
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target

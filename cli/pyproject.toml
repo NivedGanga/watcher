@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentwatch"
+version = "0.1.0"
+description = "Wrap agent processes, queue events locally, and report them to the AgentWatch server."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+keywords = ["agent", "monitoring", "alerts", "cli"]
+classifiers = [
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: System :: Monitoring",
+]
+# Runtime uses the standard library only.
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest", "jsonschema", "build"]
+
+[project.scripts]
+agentwatch = "agentwatch.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+agentwatch = ["data/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
