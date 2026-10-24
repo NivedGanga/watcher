@@ -20,6 +20,6 @@ if [ "$published" -eq 0 ]; then
   exit 1
 fi
 
-echo "publishing agentwatch (launcher)"
-npm publish agentwatch --access public
+echo "publishing agentwatch-tool (launcher)"
+npm publish ./agentwatch --access public
 echo "done"
