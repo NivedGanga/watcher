@@ -1,8 +1,8 @@
 import Ajv2020 from 'ajv/dist/2020.js';
 import type { ValidateFunction } from 'ajv';
-import eventSchema from '../../spec/schemas/event.schema.json';
-import signalSchema from '../../spec/schemas/signal.schema.json';
-import heartbeatSchema from '../../spec/schemas/heartbeat.schema.json';
+import eventSchema from '../../spec/schemas/event.schema.json' with { type: 'json' };
+import signalSchema from '../../spec/schemas/signal.schema.json' with { type: 'json' };
+import heartbeatSchema from '../../spec/schemas/heartbeat.schema.json' with { type: 'json' };
 
 const ajv = new Ajv2020({ strict: false, allErrors: false });
 // The wire requirement (UTC ending in Z) is enforced by each schema's pattern;

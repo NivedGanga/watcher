@@ -3,7 +3,7 @@ import { createDb, type Db } from '../src/db/client.js';
 type TestDoc = { _id: string } & Record<string, any>;
 const col = (name: string) => db.db.collection<TestDoc>(name);
 import { COLLECTIONS } from '../src/db/indexes.js';
-import { createApp } from '../src/app.js';
+import { createApp } from '../src/create-app.js';
 import type { Config } from '../src/config.js';
 import type {
   Deps,

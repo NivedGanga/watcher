@@ -2,7 +2,7 @@ import { serve } from '@hono/node-server';
 import { loadConfig } from './config.js';
 import { createDb } from './db/client.js';
 import { ensureIndexes } from './db/indexes.js';
-import { createApp } from './app.js';
+import { createApp } from './create-app.js';
 import { FirebaseAuthProvider, FcmPushProvider } from './providers/firebase.js';
 import { ResendEmailProvider } from './providers/resend.js';
 import { MongoJobRunner, fetchHealthCheck } from './providers/jobs.js';
