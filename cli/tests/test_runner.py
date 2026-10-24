@@ -9,6 +9,7 @@ import time
 
 import pytest
 
+from agentwatch.config import sanitize_hostname
 from conftest import (
     FAKE_AGENT,
     SPEC_DIR,
@@ -194,7 +195,7 @@ def test_ask_outside_run(env):
     assert e["type"] == "question"
     assert e["blocking"] is True
     assert e["email_allowed"] is True
-    assert e["agent"] == "adhoc"
+    assert e["agent"] == sanitize_hostname()
     assert e["summary"] == "deploy now?"
     assert e["run_id"]  # generated
 
@@ -229,7 +230,7 @@ def test_metadata_mode_hides_text(env):
         assert "python3" not in blob
     summaries = {e["type"]: e["summary"] for e in outbox_events(env)}
     assert summaries["done"] == "Finished: demo"
-    assert summaries["question"] == "Question from adhoc"
+    assert summaries["question"] == f"Question from {sanitize_hostname()}"
 
 
 # --- spec scenario fixtures -------------------------------------------------

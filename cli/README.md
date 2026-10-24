@@ -69,7 +69,7 @@ agentwatch done "Deployed 42 services"          # done event
 ```
 
 Both write to the local outbox only and return immediately — no network.
-Outside a run they use agent `adhoc` and a generated run id.
+Outside a run they use the machine name as the agent and a generated run id.
 
 ## The daemon
 

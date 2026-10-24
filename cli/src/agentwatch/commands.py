@@ -8,6 +8,7 @@ import time
 from datetime import datetime, timezone
 
 from . import events, machinekey, service
+from .config import sanitize_hostname
 from .delivery import DrainReport, Sender
 from .store import Store
 
@@ -32,7 +33,7 @@ PRIVACY_EXPLANATIONS = {
 
 def _run_identity() -> tuple[str, str]:
     """(agent, run_id) from the wrapper environment, or ad hoc defaults."""
-    agent = os.environ.get("AGENTWATCH_AGENT") or "adhoc"
+    agent = os.environ.get("AGENTWATCH_AGENT") or sanitize_hostname()
     run_id = os.environ.get("AGENTWATCH_RUN_ID") or events.new_run_id()
     return agent, run_id
 
