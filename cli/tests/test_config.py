@@ -12,7 +12,7 @@ from agentwatch.config import (
 
 
 def test_defaults(env, config):
-    assert config.backend_url == "https://api.alerts.example.com"
+    assert config.backend_url == "https://agentwatch-api-alpha.vercel.app"
     assert config.privacy_mode == "full"
     assert config.machine_id == ""
     assert config.heartbeat_interval_seconds == 300
@@ -74,12 +74,12 @@ def test_backend_url_env_override_only_in_dev(env, monkeypatch):
     cfg_path = env["config_dir"] / "config.toml"
     env["config_dir"].mkdir(parents=True)
     cfg_path.write_text(
-        '[general]\nbackend_url = "https://api.alerts.example.com"\n'
+        '[general]\nbackend_url = "https://agentwatch-api-alpha.vercel.app"\n'
     )
     monkeypatch.setenv("AGENTWATCH_BACKEND_URL", "http://127.0.0.1:1")
     cfg = load(cfg_path)
     # Not in dev mode: override ignored.
-    assert cfg.backend_url == "https://api.alerts.example.com"
+    assert cfg.backend_url == "https://agentwatch-api-alpha.vercel.app"
 
 
 def test_agent_settings(env, config):

@@ -15,7 +15,7 @@ from urllib.parse import urlparse
 
 from . import paths
 
-DEFAULT_BACKEND_URL = "https://api.alerts.example.com"
+DEFAULT_BACKEND_URL = "https://agentwatch-api-alpha.vercel.app"
 DEFAULT_HEARTBEAT_INTERVAL_MINUTES = 5
 DEFAULT_RETURN_IDLE_MINUTES = 5
 DEFAULT_PRIVACY_MODE = "full"
