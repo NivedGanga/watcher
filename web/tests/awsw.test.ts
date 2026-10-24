@@ -42,12 +42,12 @@ function ctx(over: Record<string, unknown> = {}) {
 
 describe('alert notifications', () => {
   it.each([
-    ['question', 'Question from claude', true],
-    ['failed', 'Failed: claude', true],
-    ['timed_out', 'Timed out: claude', true],
-    ['done', 'Finished: claude', false],
-    ['stalled', 'Stalled: claude', false],
-    ['host_silent', 'Host offline: workstation', true],
+    ['question', 'Answer needed — claude', true],
+    ['failed', 'Task failed — claude', true],
+    ['timed_out', 'Task timed out — claude', true],
+    ['done', 'Task finished — claude', false],
+    ['stalled', 'Task stalled — claude', false],
+    ['host_silent', 'Machine offline — workstation', true],
   ] as const)('%s shows "%s" (requireInteraction=%s)', async (event_type, title, ri) => {
     const c = ctx();
     await handlePushData(alert({ event_type }), c);
@@ -55,6 +55,11 @@ describe('alert notifications', () => {
       title,
       expect.objectContaining({ body: 'exit 1 after npm test', tag: 'run_9', requireInteraction: ri }),
     );
+  });
+
+  it('drops the name suffix when agent equals host (ad-hoc)', () => {
+    const n = notificationForAlert(alert({ event_type: 'done', agent: 'workstation' }));
+    expect(n.title).toBe('Task finished');
   });
 
   it('grouped titles use the count and agent', () => {

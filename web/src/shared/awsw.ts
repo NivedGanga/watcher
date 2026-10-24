@@ -76,20 +76,27 @@ function groupTitle(d: AlertData): string {
   return `Events from ${d.agent}`;
 }
 
+// Named runs append " — {agent}" to the title; ad-hoc signals report the
+// machine name as the agent (agent === host), which is noise in a title, so
+// the name is dropped and the label stands alone.
+function nameSuffix(d: AlertData): string {
+  return d.agent && d.agent !== d.host ? ` — ${d.agent}` : '';
+}
+
 export function titleForAlert(d: AlertData): string {
   switch (d.event_type) {
     case 'question':
-      return `Question from ${d.agent}`;
+      return `Answer needed${nameSuffix(d)}`;
     case 'failed':
-      return `Failed: ${d.agent}`;
+      return `Task failed${nameSuffix(d)}`;
     case 'timed_out':
-      return `Timed out: ${d.agent}`;
+      return `Task timed out${nameSuffix(d)}`;
     case 'done':
-      return `Finished: ${d.agent}`;
+      return `Task finished${nameSuffix(d)}`;
     case 'stalled':
-      return `Stalled: ${d.agent}`;
+      return `Task stalled${nameSuffix(d)}`;
     case 'host_silent':
-      return `Host offline: ${d.host}`;
+      return `Machine offline — ${d.host}`;
     case 'grouped':
     case 'group_closed':
       return groupTitle(d);
