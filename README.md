@@ -15,8 +15,15 @@ in `spec/` alone**.
 npm i -g agentwatch-tool      # installs the `agentwatch` command
 agentwatch login              # prints a link — approve it in the PWA
 agentwatch install-service    # persistent daemon (or: agentwatch daemon)
+agentwatch init               # seeds AGENTS.md so agentic tools use it
 agentwatch run --name demo -- python3 train.py
 ```
+
+`agentwatch init` writes the instruction block into `AGENTS.md` (read by
+Codex, Copilot, Cursor, Devin, Aider, Windsurf, …). Use `--agents
+copilot,claude,gemini` to also write tool-specific files, and `--global` to
+merge it into `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, `~/.gemini/GEMINI.md`
+so it applies to every repo on the machine.
 
 That's it: exits report `done`/`failed`, deadline overruns report
 `timed_out`, silent runs report `stalled`, and `agentwatch ask`/`done` inside

@@ -8,6 +8,7 @@ import sys
 
 from . import __version__, machinekey, paths, service
 from .config import ConfigError, load, parse_duration
+from . import init as init_mod
 
 
 def _err(text: str) -> None:
@@ -51,6 +52,20 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("status", help="show local state")
     sub.add_parser("test", help="enqueue and send one event of each type")
+
+    p = sub.add_parser("init", help="write the AgentWatch block into agent instruction files")
+    p.add_argument(
+        "--agents",
+        default="",
+        help="extra per-repo files, comma-separated: copilot, claude, gemini "
+        "(AGENTS.md is always written)",
+    )
+    p.add_argument(
+        "--global",
+        dest="global_scope",
+        action="store_true",
+        help="also merge into user-level files (~/.claude/CLAUDE.md, ~/.codex/AGENTS.md, ~/.gemini/GEMINI.md)",
+    )
     return parser
 
 
@@ -151,6 +166,13 @@ def main(argv: list[str] | None = None) -> int:
             return commands.cmd_status(config, store)
         if args.command == "test":
             return commands.cmd_test(config, store, redactor)
+        if args.command == "init":
+            names = [a.strip() for a in args.agents.split(",") if a.strip()]
+            bad = [a for a in names if a not in init_mod.AGENT_FILES]
+            if bad:
+                _err(f"unknown agent(s): {', '.join(bad)} (choose from: {', '.join(init_mod.AGENT_FILES)})")
+                return 2
+            return init_mod.cmd_init(names, args.global_scope)
         return 2
     finally:
         store.close()
