@@ -4,7 +4,7 @@ Wrap any terminal agent or script — get a push notification or email when it
 finishes, fails, gets stuck, or needs a decision.
 
 ```sh
-npm i -g agentwatch          # or: npx agentwatch <command>
+npm i -g agentwatch-tool          # or: npx agentwatch-tool <command>
 agentwatch login             # approve in the browser PWA
 agentwatch daemon            # background delivery (or: agentwatch install-service)
 agentwatch run --name demo -- python3 train.py
@@ -26,5 +26,5 @@ https://github.com/NivedGanga/watcher
 ## How it works
 
 This package ships a tiny launcher plus a prebuilt binary for your platform
-(`@agentwatch/darwin-arm64`, `darwin-x64`, `linux-x64`, `linux-arm64`),
+(`@agentwatch-tool/darwin-arm64`, `darwin-x64`, `linux-x64`, `linux-arm64`),
 installed automatically via npm `optionalDependencies`.

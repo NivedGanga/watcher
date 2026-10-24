@@ -1,5 +1,5 @@
 {
-  "name": "@agentwatch/darwin-arm64",
+  "name": "@agentwatch-tool/darwin-arm64",
   "version": "0.1.0",
   "description": "Prebuilt agentwatch binary for darwin arm64",
   "license": "Apache-2.0",

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Publish all @agentwatch/* platform packages that contain a built binary,
-# then the `agentwatch` launcher. Run `npm login` first.
+# then the `agentwatch-tool` launcher. Run `npm login` first.
 set -euo pipefail
 cd "$(dirname "$0")"
 

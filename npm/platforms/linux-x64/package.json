@@ -1,5 +1,5 @@
 {
-  "name": "@agentwatch/linux-x64",
+  "name": "@agentwatch-tool/linux-x64",
   "version": "0.1.0",
   "description": "Prebuilt agentwatch binary for linux x64",
   "license": "Apache-2.0",

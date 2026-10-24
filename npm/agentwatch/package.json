@@ -1,5 +1,5 @@
 {
-  "name": "agentwatch",
+  "name": "agentwatch-tool",
   "version": "0.1.0",
   "description": "Wrap terminal agents and get push/email alerts on completion, failure, questions, timeouts, and stalls.",
   "license": "Apache-2.0",
@@ -13,10 +13,10 @@
     "node": ">=16"
   },
   "optionalDependencies": {
-    "@agentwatch/darwin-arm64": "0.1.0",
-    "@agentwatch/darwin-x64": "0.1.0",
-    "@agentwatch/linux-x64": "0.1.0",
-    "@agentwatch/linux-arm64": "0.1.0"
+    "@agentwatch-tool/darwin-arm64": "0.1.0",
+    "@agentwatch-tool/darwin-x64": "0.1.0",
+    "@agentwatch-tool/linux-x64": "0.1.0",
+    "@agentwatch-tool/linux-arm64": "0.1.0"
   },
   "repository": {
     "type": "git",
