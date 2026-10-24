@@ -9,6 +9,23 @@ locally and sends them. v1 is hosted only.
 This repository is organized so that **every module is built from the files
 in `spec/` alone**.
 
+## Quick start (npm)
+
+```sh
+npm i -g agentwatch-tool      # installs the `agentwatch` command
+agentwatch login              # prints a link — approve it in the PWA
+agentwatch install-service    # persistent daemon (or: agentwatch daemon)
+agentwatch run --name demo -- python3 train.py
+```
+
+That's it: exits report `done`/`failed`, deadline overruns report
+`timed_out`, silent runs report `stalled`, and `agentwatch ask`/`done` inside
+any agent or script send blocking questions and completions to your phone.
+
+macOS (arm64/x64) and Linux (x64/arm64) ship prebuilt binaries — no Python
+required. Other ways to install: `pipx install ./cli`, or `npx agentwatch-tool`
+for one-off runs.
+
 ## Layout
 
 | Path | Contents | License |

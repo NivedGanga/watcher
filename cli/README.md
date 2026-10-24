@@ -10,6 +10,12 @@ Native Windows is not supported; WSL works.
 ## Install
 
 ```
+npm i -g agentwatch-tool    # prebuilt binaries, no Python needed (recommended)
+```
+
+or from source:
+
+```
 pipx install agentwatch
 ```
 
