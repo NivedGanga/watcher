@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AgentWatch FCM Data Payload",
+  "description": "Data-only web push message. Every value is a string. Two shapes: 'alert' and 'state'.",
+  "type": "object",
+  "required": ["type"],
+  "properties": {
+    "type": {"type": "string", "enum": ["alert", "state"]}
+  },
+  "oneOf": [
+    {
+      "title": "alert",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "event_id",
+        "delivery_id",
+        "event_type",
+        "agent",
+        "host",
+        "summary",
+        "run_id",
+        "timestamp"
+      ],
+      "properties": {
+        "type": {"const": "alert"},
+        "event_id": {"type": "string"},
+        "delivery_id": {"type": "string"},
+        "event_type": {
+          "type": "string",
+          "enum": [
+            "question",
+            "failed",
+            "timed_out",
+            "done",
+            "stalled",
+            "host_silent",
+            "grouped",
+            "group_closed"
+          ]
+        },
+        "agent": {"type": "string"},
+        "host": {"type": "string"},
+        "summary": {"type": "string"},
+        "run_id": {"type": "string"},
+        "timestamp": {"type": "string"}
+      }
+    },
+    {
+      "title": "state",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "on", "until", "timestamp"],
+      "properties": {
+        "type": {"const": "state"},
+        "on": {"type": "string", "enum": ["true", "false"]},
+        "until": {
+          "type": "string",
+          "description": "RFC 3339 timestamp while the flag is on; empty string when off."
+        },
+        "timestamp": {"type": "string"}
+      }
+    }
+  ]
+}

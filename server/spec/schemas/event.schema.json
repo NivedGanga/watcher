@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AgentWatch Event",
+  "description": "An event sent by the CLI in POST /api/events. 'host_silent' is backend-created and never appears on the wire; 'started' is never sent. Unknown fields are rejected.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "agent",
+    "run_id",
+    "host",
+    "type",
+    "blocking",
+    "summary",
+    "exit_code",
+    "duration_s",
+    "email_allowed",
+    "timestamp"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Client-generated UUID v4; the idempotency key.",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
+    },
+    "agent": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "host": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "type": {
+      "type": "string",
+      "enum": ["question", "done", "failed", "timed_out", "stalled"]
+    },
+    "blocking": {
+      "type": "boolean",
+      "description": "true for question, failed, timed_out; false for done, stalled."
+    },
+    "summary": {
+      "type": "string",
+      "maxLength": 200,
+      "pattern": "^[^\\r\\n]*$",
+      "description": "One line, redacted by the sender before transmission."
+    },
+    "exit_code": {
+      "type": ["integer", "null"]
+    },
+    "duration_s": {
+      "type": ["number", "null"],
+      "minimum": 0
+    },
+    "email_allowed": {
+      "type": "boolean"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+      "description": "RFC 3339, UTC, ending in Z."
+    }
+  }
+}
