@@ -15,6 +15,12 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    resolve: {
+      // @firebase/auth and firebase/app must share one @firebase/app instance
+      // or component registration lands in a different registry (blank page:
+      // "Component auth has not been registered yet").
+      dedupe: ['@firebase/app', '@firebase/component'],
+    },
     build: {
       target: 'es2020',
     },
