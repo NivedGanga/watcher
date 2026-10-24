@@ -1,14 +1,16 @@
 import { serve } from '@hono/node-server';
 import { loadConfig } from './config.js';
 import { createDb } from './db/client.js';
+import { ensureIndexes } from './db/indexes.js';
 import { createApp } from './app.js';
 import { FirebaseAuthProvider, FcmPushProvider } from './providers/firebase.js';
 import { ResendEmailProvider } from './providers/resend.js';
-import { PostgresJobRunner, fetchHealthCheck } from './providers/jobs.js';
+import { MongoJobRunner, fetchHealthCheck } from './providers/jobs.js';
 import { log } from './lib/logger.js';
 
 const config = loadConfig();
 const { db } = createDb(config.databaseUrl);
+await ensureIndexes(db.db);
 
 const app = createApp({
   config,
@@ -17,7 +19,7 @@ const app = createApp({
     auth: new FirebaseAuthProvider(config.firebaseProjectId, config.firebaseServiceAccountJsonB64),
     push: new FcmPushProvider(config.firebaseProjectId, config.firebaseServiceAccountJsonB64),
     email: new ResendEmailProvider(config.resendApiKey),
-    jobs: new PostgresJobRunner(db),
+    jobs: new MongoJobRunner(db),
     healthcheck: fetchHealthCheck,
   },
 });

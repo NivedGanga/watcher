@@ -6,7 +6,7 @@ export default defineConfig({
     globalSetup: './tests/global-setup.ts',
     testTimeout: 30000,
     env: {
-      DATABASE_URL: 'postgres://postgres:postgres@localhost:5433/agentwatch_test',
+      DATABASE_URL: 'mongodb://localhost:27017/agentwatch_test?replicaSet=rs0&directConnection=true',
     },
   },
 });

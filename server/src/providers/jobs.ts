@@ -1,8 +1,8 @@
 import type { JobRunner, DbLike } from './types.js';
 import { asDb, enqueueJob } from '../repo.js';
 
-/** Postgres-backed JobRunner. Self-hosted deployments could swap this out. */
-export class PostgresJobRunner implements JobRunner {
+/** Database-backed JobRunner. Self-hosted deployments could swap this out. */
+export class MongoJobRunner implements JobRunner {
   constructor(private db: DbLike) {}
 
   async enqueue(

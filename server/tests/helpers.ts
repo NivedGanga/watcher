@@ -1,5 +1,8 @@
-import { sql } from 'drizzle-orm';
 import { createDb, type Db } from '../src/db/client.js';
+
+type TestDoc = { _id: string } & Record<string, any>;
+const col = (name: string) => db.db.collection<TestDoc>(name);
+import { COLLECTIONS } from '../src/db/indexes.js';
 import { createApp } from '../src/app.js';
 import type { Config } from '../src/config.js';
 import type {
@@ -13,13 +16,14 @@ import type {
   HealthCheck,
 } from '../src/providers/types.js';
 import { PushError } from '../src/providers/types.js';
-import { PostgresJobRunner } from '../src/providers/jobs.js';
+import { MongoJobRunner } from '../src/providers/jobs.js';
 import { hmac, aesGcmEncrypt, randomId, randomSecret } from '../src/lib/crypto.js';
 import * as repo from '../src/repo.js';
 import { runTick } from '../src/worker/tick.js';
 
 export const TEST_DATABASE_URL =
-  process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5433/agentwatch_test';
+  process.env.DATABASE_URL ??
+  'mongodb://localhost:27017/agentwatch_test?replicaSet=rs0&directConnection=true';
 
 const shared = createDb(TEST_DATABASE_URL);
 export const db: Db = shared.db;
@@ -113,7 +117,7 @@ export function makeDeps(): TestDeps {
     auth: new FakeAuthProvider(),
     push: new FakePushProvider(),
     email: new FakeEmailProvider(),
-    jobs: new PostgresJobRunner(db),
+    jobs: new MongoJobRunner(db),
     healthcheck: new FakeHealthCheck(),
   };
 }
@@ -123,10 +127,7 @@ export const deps = makeDeps();
 export const app = createApp({ config, deps, db });
 
 export async function resetDb() {
-  await db.execute(sql`TRUNCATE TABLE
-    deliveries, events, signals, groups, jobs, rate_limits,
-    usage_monthly, system_state, device_authorizations,
-    devices, machines, users RESTART IDENTITY CASCADE`);
+  await Promise.all(COLLECTIONS.map((name) => db.db.collection(name).deleteMany({})));
   deps.push.reset();
   deps.email.reset();
   deps.healthcheck.pings = [];
@@ -159,9 +160,14 @@ export async function seedUser(opts: {
     emailVerified: opts.verified ?? true,
   });
   if (opts.notifyOnPhone !== undefined || opts.phoneAlertsSince !== undefined) {
-    await db.execute(
-      sql`UPDATE users SET notify_on_phone = ${opts.notifyOnPhone ?? false},
-          phone_alerts_since = ${opts.phoneAlertsSince ? opts.phoneAlertsSince.toISOString() : null} WHERE id = ${user.id}`,
+    await col('users').updateOne(
+      { _id: user.id },
+      {
+        $set: {
+          notifyOnPhone: opts.notifyOnPhone ?? false,
+          phoneAlertsSince: opts.phoneAlertsSince ?? null,
+        },
+      },
     );
   }
   return { userId: user.id, token, email: opts.email };
@@ -186,13 +192,16 @@ export async function seedMachine(
     keyHash: hmac(config.machineKeyPepper, `mk:${secret}`),
   });
   if (opts.lastHeartbeatAt !== undefined || opts.activeRuns !== undefined || opts.silentAlertedAt !== undefined || opts.revoked) {
-    await db.execute(
-      sql`UPDATE machines SET
-        last_heartbeat_at = ${opts.lastHeartbeatAt ? opts.lastHeartbeatAt.toISOString() : null},
-        active_runs = ${opts.activeRuns ?? 0},
-        silent_alerted_at = ${opts.silentAlertedAt ? opts.silentAlertedAt.toISOString() : null},
-        revoked_at = ${opts.revoked ? new Date().toISOString() : null}
-        WHERE id = ${machineId}`,
+    await col('machines').updateOne(
+      { _id: machineId },
+      {
+        $set: {
+          lastHeartbeatAt: opts.lastHeartbeatAt ?? null,
+          activeRuns: opts.activeRuns ?? 0,
+          silentAlertedAt: opts.silentAlertedAt ?? null,
+          revokedAt: opts.revoked ? new Date() : null,
+        },
+      },
     );
   }
   return { machineId, key: `aw_${machineId}_${secret}` };
@@ -219,9 +228,14 @@ export async function seedDevice(
     deviceSecretHash: hmac(config.machineKeyPepper, `devsecret:${secret}`),
   });
   if (opts.lastSeenAt || opts.revoked) {
-    await db.execute(
-      sql`UPDATE devices SET last_seen_at = ${(opts.lastSeenAt ?? new Date()).toISOString()},
-          revoked_at = ${opts.revoked ? new Date().toISOString() : null} WHERE id = ${deviceId}`,
+    await col('devices').updateOne(
+      { _id: deviceId },
+      {
+        $set: {
+          lastSeenAt: opts.lastSeenAt ?? new Date(),
+          revokedAt: opts.revoked ? new Date() : null,
+        },
+      },
     );
   }
   return { deviceId, secret, token };

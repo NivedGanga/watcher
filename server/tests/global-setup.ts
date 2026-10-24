@@ -1,11 +1,11 @@
-import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import { createDb } from '../src/db/client.js';
+import { ensureIndexes } from '../src/db/indexes.js';
 
 export default async function setup() {
   const url =
     process.env.DATABASE_URL ??
-    'postgres://postgres:postgres@localhost:5433/agentwatch_test';
-  const { db, sql } = createDb(url);
-  await migrate(db, { migrationsFolder: './drizzle' });
-  await sql.end();
+    'mongodb://localhost:27017/agentwatch_test?replicaSet=rs0&directConnection=true';
+  const { db, client } = createDb(url);
+  await ensureIndexes(db.db);
+  await client.close();
 }

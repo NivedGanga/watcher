@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { sql } from 'drizzle-orm';
 import {
   app, db, deps, config, resetDb, seedUser, seedMachine, seedDevice,
   authHeaders, PROTOCOL, makeEvent, uuid, tick, postEvents,
 } from './helpers.js';
 import * as repo from '../src/repo.js';
 import { hmac } from '../src/lib/crypto.js';
+
+const col = (name: string) => db.db.collection<{ _id: string } & Record<string, any>>(name);
 
 beforeEach(resetDb);
 
@@ -105,7 +106,7 @@ describe('device enrollment', () => {
     expect(((await poll2.json()) as any).error).toBe('slow_down');
 
     // make the next poll legal
-    await db.execute(sql`UPDATE device_authorizations SET last_polled_at = now() - interval '1 hour'`);
+    await col('device_authorizations').updateMany({}, { $set: { lastPolledAt: new Date(Date.now() - 3600_000) } });
 
     const u = await seedUser({ email: 'e@x.com' });
     const pending = await get(`/api/device/pending?user_code=${s.user_code}`, authHeaders(u.token));
@@ -119,7 +120,7 @@ describe('device enrollment', () => {
     expect(((await approve.json()) as any).approved).toBe(true);
 
     // reset poll throttle
-    await db.execute(sql`UPDATE device_authorizations SET last_polled_at = now() - interval '1 hour'`);
+    await col('device_authorizations').updateMany({}, { $set: { lastPolledAt: new Date(Date.now() - 3600_000) } });
 
     const redeem = await post('/api/device/token', { device_code: s.device_code }, PROTOCOL);
     const r = (await redeem.json()) as any;
@@ -145,7 +146,7 @@ describe('device enrollment', () => {
     const u = await seedUser({ email: 'd@x.com' });
     const deny = await post('/api/device/deny', { user_code: s.user_code }, authHeaders(u.token));
     expect(((await deny.json()) as any).approved).toBe(false);
-    await db.execute(sql`UPDATE device_authorizations SET last_polled_at = now() - interval '1 hour'`);
+    await col('device_authorizations').updateMany({}, { $set: { lastPolledAt: new Date(Date.now() - 3600_000) } });
     const poll = await post('/api/device/token', { device_code: s.device_code }, PROTOCOL);
     expect(((await poll.json()) as any).error).toBe('access_denied');
   });
@@ -155,7 +156,7 @@ describe('device enrollment', () => {
     expect(((await unknown.json()) as any).error).toBe('expired_token');
     const start = await post('/api/device/start', { client_name: 'a', client_os: 'b' }, PROTOCOL);
     const s = (await start.json()) as any;
-    await db.execute(sql`UPDATE device_authorizations SET expires_at = now() - interval '1 second'`);
+    await col('device_authorizations').updateMany({}, { $set: { expiresAt: new Date(Date.now() - 1000) } });
     const poll = await post('/api/device/token', { device_code: s.device_code }, PROTOCOL);
     expect(((await poll.json()) as any).error).toBe('expired_token');
   });
@@ -176,7 +177,7 @@ describe('device enrollment', () => {
     const s = (await start.json()) as any;
     await post('/api/device/approve', { user_code: s.user_code }, authHeaders(u.token));
     for (let i = 0; i < 5; i++) await seedMachine(u.userId);
-    await db.execute(sql`UPDATE device_authorizations SET last_polled_at = now() - interval '1 hour'`);
+    await col('device_authorizations').updateMany({}, { $set: { lastPolledAt: new Date(Date.now() - 3600_000) } });
     const poll = await post('/api/device/token', { device_code: s.device_code }, PROTOCOL);
     expect(((await poll.json()) as any).error).toBe('access_denied');
   });
@@ -254,15 +255,13 @@ describe('tenant isolation', () => {
     // B's machine key can't write into A's account (routes to B's data only)
     const res = await postEvents(mb.key, [makeEvent()]);
     expect(res.status).toBe(202);
-    const count = await db.execute(sql`SELECT count(*)::int AS n FROM events WHERE user_id = ${a.userId}`);
-    expect((count as unknown as { n: number }[])[0]!.n).toBe(0);
+    expect(await col('events').countDocuments({ userId: a.userId })).toBe(0);
 
     // B's device secret can't ack A's delivery
     const ev = makeEvent({ id: uuid() });
     await seedDevice(a.userId, { token: 'fa1' });
     await postEvents((await seedMachine(a.userId)).key, [ev]);
-    const deliveries = await db.execute(sql`SELECT id FROM deliveries WHERE user_id = ${a.userId}`);
-    const delId = (deliveries as unknown as { id: string }[])[0]!.id;
+    const delId = (await col('deliveries').find({ userId: a.userId }).toArray())[0]!.id as string;
     const receipt = await post(
       '/api/receipts',
       { delivery_id: delId },
@@ -320,8 +319,7 @@ describe('account endpoints', () => {
     await postEvents(m.key, [makeEvent()]);
     const res = await del('/api/me', authHeaders(u.token));
     expect(res.status).toBe(204);
-    const events = await db.execute(sql`SELECT count(*)::int AS n FROM events WHERE user_id = ${u.userId}`);
-    expect((events as unknown as { n: number }[])[0]!.n).toBe(0);
+    expect(await col('events').countDocuments({ userId: u.userId })).toBe(0);
     // machine key no longer works
     expect((await postEvents(m.key, [makeEvent()])).status).toBe(401);
     // device secret no longer works
@@ -445,15 +443,14 @@ describe('receipt fallback and reminders', () => {
     const d = await seedDevice(u.userId);
     const ev = makeEvent();
     await postEvents(m.key, [ev]);
-    const rows = await db.execute(sql`SELECT id FROM deliveries WHERE channel = 'push'`);
-    const delId = (rows as unknown as { id: string }[])[0]!.id;
+    const delId = (await col('deliveries').find({ channel: 'push' }).toArray())[0]!.id as string;
     const receipt = await post('/api/receipts', { delivery_id: delId }, { Authorization: `Device ${d.deviceId}.${d.secret}`, ...PROTOCOL });
     expect(receipt.status).toBe(204);
     await tick(new Date(Date.now() + 121_000));
     expect(deps.email.sent.length).toBe(0);
     // delivery marked skipped with reason
-    const em = await db.execute(sql`SELECT status, skip_reason FROM deliveries WHERE channel='email'`);
-    expect((em as unknown as { status: string }[])[0]!.status).toBe('skipped');
+    const em = await col('deliveries').findOne({ channel: 'email' });
+    expect(em!.status).toBe('skipped');
   });
 
   it('question receipt schedules reminder; sent when no output_seen', async () => {
@@ -462,8 +459,7 @@ describe('receipt fallback and reminders', () => {
     const d = await seedDevice(u.userId);
     const qTs = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
     await postEvents(m.key, [makeEvent({ type: 'question', blocking: true, timestamp: qTs })]);
-    const rows = await db.execute(sql`SELECT id FROM deliveries WHERE channel = 'push'`);
-    const delId = (rows as unknown as { id: string }[])[0]!.id;
+    const delId = (await col('deliveries').find({ channel: 'push' }).toArray())[0]!.id as string;
     await post('/api/receipts', { delivery_id: delId }, { Authorization: `Device ${d.deviceId}.${d.secret}`, ...PROTOCOL });
     await tick(new Date(Date.now() + 601_000));
     expect(deps.email.sent.length).toBe(1);
@@ -479,12 +475,12 @@ describe('receipt fallback and reminders', () => {
       headers: { ...authHeaders(m.key), 'Content-Type': 'application/json' },
       body: JSON.stringify({ signals: [{ id: uuid(), kind: 'output_seen', run_id: 'r1', at: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z') }] }),
     });
-    const rows = await db.execute(sql`SELECT id FROM deliveries WHERE channel = 'push'`);
-    await post('/api/receipts', { delivery_id: (rows as unknown as { id: string }[])[0]!.id }, { Authorization: `Device ${d.deviceId}.${d.secret}`, ...PROTOCOL });
+    const rows = await col('deliveries').find({ channel: 'push' }).toArray();
+    await post('/api/receipts', { delivery_id: rows[0]!.id as string }, { Authorization: `Device ${d.deviceId}.${d.secret}`, ...PROTOCOL });
     await tick(new Date(Date.now() + 601_000));
     expect(deps.email.sent.length).toBe(0);
-    const em = await db.execute(sql`SELECT skip_reason FROM deliveries WHERE channel='email'`);
-    expect((em as unknown as { skip_reason: string }[])[0]!.skip_reason).toBe('output_seen');
+    const em = await col('deliveries').findOne({ channel: 'email' });
+    expect(em!.skipReason).toBe('output_seen');
   });
 });
 
@@ -619,10 +615,10 @@ describe('rate limits', () => {
   it('events limited to 60/machine/min', async () => {
     const u = await seedUser({ email: 'rl@x.com' });
     const m = await seedMachine(u.userId);
-    await db.execute(
-      sql`INSERT INTO rate_limits (key, window_start, count)
-          VALUES (${'events:' + m.machineId}, ${new Date(Math.floor(Date.now() / 60000) * 60000).toISOString()}, 60)
-          ON CONFLICT (key) DO UPDATE SET count = 60`,
+    await col('rate_limits').updateOne(
+      { _id: 'events:' + m.machineId },
+      { $set: { windowStart: new Date(Math.floor(Date.now() / 60000) * 60000), count: 60 } },
+      { upsert: true },
     );
     const res = await postEvents(m.key, [makeEvent()]);
     expect(res.status).toBe(429);
@@ -657,7 +653,7 @@ describe('email rules', () => {
     const u = await seedUser({ email: 'cap@x.com' });
     const m = await seedMachine(u.userId);
     const month = new Date().toISOString().slice(0, 7);
-    await db.execute(sql`INSERT INTO usage_monthly (user_id, month, emails_sent) VALUES (${u.userId}, ${month}, 200)`);
+    await col('usage_monthly').insertOne({ _id: `${u.userId}:${month}`, userId: u.userId, month, emailsSent: 200 });
     const res = await post('/api/machines/current/test', {}, authHeaders(m.key));
     expect(res.status).toBe(409);
   });
@@ -669,9 +665,9 @@ describe('email rules', () => {
     await postEvents(m.key, [makeEvent()]);
     await tick();
     expect(deps.email.sent.length).toBe(0);
-    const rows = await db.execute(sql`SELECT status, skip_reason FROM deliveries WHERE channel='email'`);
-    expect((rows as unknown as { status: string; skip_reason: string }[])[0]!.status).toBe('skipped');
-    expect((rows as unknown as { status: string; skip_reason: string }[])[0]!.skip_reason).toBe('email_unverified');
+    const rows = await col('deliveries').findOne({ channel: 'email' });
+    expect(rows!.status).toBe('skipped');
+    expect(rows!.skipReason).toBe('email_unverified');
   });
 });
 
@@ -687,14 +683,12 @@ describe('fcm failure handling', () => {
     await tick();
     const dev = (await repo.getDevice(db, d.deviceId))!;
     expect(dev.revokedAt).not.toBeNull();
-    const rows = await db.execute(sql`SELECT status, attempts FROM deliveries WHERE channel='push'`);
-    const row = (rows as unknown as { status: string; attempts: number }[])[0]!;
+    const row = (await col('deliveries').findOne({ channel: 'push' }))!;
     expect(row.status).toBe('failed');
     // next tick does not retry
     const attemptsBefore = row.attempts;
     await tick(new Date(Date.now() + 120_000));
-    const rows2 = await db.execute(sql`SELECT attempts FROM deliveries WHERE channel='push'`);
-    expect((rows2 as unknown as { attempts: number }[])[0]!.attempts).toBe(attemptsBefore);
+    expect((await col('deliveries').findOne({ channel: 'push' }))!.attempts).toBe(attemptsBefore);
   });
 
   it('transient failures retry with backoff up to 5 attempts', async () => {
@@ -706,8 +700,7 @@ describe('fcm failure handling', () => {
     for (let i = 0; i < 8; i++) {
       await tick(new Date(Date.now() + i * 600_000));
     }
-    const rows = await db.execute(sql`SELECT status, attempts FROM deliveries WHERE channel='push'`);
-    const row = (rows as unknown as { status: string; attempts: number }[])[0]!;
+    const row = (await col('deliveries').findOne({ channel: 'push' }))!;
     expect(row.status).toBe('failed');
     expect(row.attempts).toBe(5);
   });

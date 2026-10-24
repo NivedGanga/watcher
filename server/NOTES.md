@@ -109,3 +109,28 @@ recorded here.
   hosted adapters for a future swap.
 - `DELETE /api/me` deletes all rows and revokes credentials; the Firebase
   account itself is deleted by the web app (documented in README).
+
+## Storage engine: Postgres → MongoDB (2026-10-25)
+
+The server now runs on MongoDB instead of Postgres + Drizzle. The change is
+contained in the data layer; routes, routing, and worker code are untouched.
+
+- `repo.ts` keeps its function signatures; `Q` is now `{db, session?}` and
+  `Database.transaction()` wraps `session.withTransaction` (the driver
+  retries on TransientTransactionError).
+- `lockUser`/`lockAuthBy*` became write-touches inside the transaction —
+  a concurrent transaction on the same doc fails with a write conflict and
+  the callback retries, matching the old `SELECT ... FOR UPDATE` semantics.
+- `FOR UPDATE SKIP LOCKED` job claiming became per-document atomic
+  `findOneAndUpdate` in a loop.
+- Composite PKs became compound `_id`s (`${userId}:${id}`,
+  `${userId}:${agent}:${windowStartISO}`); `ON CONFLICT` became unique
+  indexes + duplicate-key (11000) handling; the deliveries unique triplet
+  uses a materialized `dedupe` field.
+- `rate_limits` upsert-CASE became a pipeline `findOneAndUpdate` with `$cond`.
+- Multi-document transactions require a replica set: local dev runs a
+  single-node `rs0` (docker compose `mongo` + `mongo-init`); production
+  expects Atlas. `DATABASE_URL` now holds a `mongodb://`/`+srv` URI.
+- `drizzle/`, `drizzle.config.ts`, `src/db/schema.ts`, and the `drizzle-orm`/
+  `postgres`/`drizzle-kit` deps were removed; collections + indexes are
+  created by `src/db/indexes.ts` via `npm run db:migrate`.

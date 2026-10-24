@@ -1,7 +1,7 @@
 # AgentWatch API
 
 Hosted API for AgentWatch (protocol v1). TypeScript, Hono on Vercel Functions,
-Postgres + Drizzle ORM, Firebase Auth + FCM push, Resend email.
+MongoDB, Firebase Auth + FCM push, Resend email.
 
 Implements `spec/SPEC.md` and `spec/api.md`. See `NOTES.md` for deviations,
 ambiguities, and operational details.
@@ -12,23 +12,23 @@ ambiguities, and operational details.
   support wraps `app.fetch` as a Function).
 - `src/app.ts` — app assembly (CORS, protocol header, error envelope).
 - `src/routes/` — endpoint handlers.
-- `src/repo.ts` — the only module that queries the database; every query is
-  scoped by the authenticated principal's `user_id`.
+- `src/repo.ts` — the only module that queries the database (MongoDB);
+  every query is scoped by the authenticated principal's `user_id`.
 - `src/routing/route.ts` — pure routing function (spec routing table,
   modifiers, grouping) tested against `spec/routing-cases.json`.
 - `src/worker/` — delivery execution and the jobs tick.
 - `src/providers/` — hosted adapters behind interfaces (`AuthProvider`,
   `PushProvider`, `EmailProvider`, `JobRunner`) so self-hosted adapters can be
   added later.
-- `drizzle/` — generated SQL migrations; `src/db/migrate.ts` applies them.
+- `src/db/indexes.ts` — collections + indexes; `src/db/migrate.ts` applies them.
 - `spec/` — vendored protocol artifacts used at runtime and in tests.
 
 ## Local development
 
 ```
 npm install
-docker compose up -d postgres          # test database on :5433
-DATABASE_URL=postgres://postgres:postgres@localhost:5433/agentwatch_test npm run db:migrate
+docker compose up -d mongo mongo-init  # single-node replica set on :27017 (needed for transactions)
+DATABASE_URL='mongodb://localhost:27017/agentwatch_test?replicaSet=rs0&directConnection=true' npm run db:migrate
 npm test                               # vitest (needs the docker db)
 npm run typecheck
 npm run dev                            # local server on :3000 (needs .env)
@@ -36,14 +36,15 @@ npm run dev                            # local server on :3000 (needs .env)
 
 ## Production setup
 
-### 1. Neon Postgres
+### 1. MongoDB Atlas
 
-1. Create a Neon project and database.
-2. Copy the **pooled** connection string (`-pooler` host) into `DATABASE_URL`
-   for the API project's env vars.
-3. Run migrations once with the **direct** (non-pooled) connection string —
-  pooled connections can break DDL:
-   `DATABASE_URL=<direct-url> npm run db:migrate`
+1. Create an Atlas cluster (M0+ works; any replica set does — transactions are
+   required, so standalone or non-replicated deployments will not work).
+2. Copy the SRV connection string into `DATABASE_URL` for the API project's
+   env vars, e.g.
+   `mongodb+srv://user:pass@cluster.mongodb.net/agentwatch`.
+3. Create collections and indexes once:
+   `DATABASE_URL=<connection-string> npm run db:migrate`
 
 ### 2. Firebase
 

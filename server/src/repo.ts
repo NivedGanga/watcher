@@ -1,12 +1,46 @@
-import { and, desc, eq, gt, lt, isNull, isNotNull, sql, type SQL } from 'drizzle-orm';
-import type { Db } from './db/client.js';
-import * as t from './db/schema.js';
+/**
+ * All persistence for the server lives here — the only module that queries
+ * the database. Implemented on the MongoDB driver; documents store the same
+ * camelCase fields the row interfaces declare, plus `_id` as the physical key.
+ *
+ * `_id` layout:  users/devices/machines/deliveries/jobs/device_authorizations
+ * use their `id`; events/signals use `${userId}:${id}`; groups use
+ * `${userId}:${agent}:${windowStartISO}`; rate_limits/system_state use the
+ * key; usage_monthly uses `${userId}:${month}`.
+ *
+ * Transactions: callers pass a `Q` bound to a session (see db/client.ts).
+ * `lockUser`/`lockAuthBy*` write-touch a document so concurrent transactions
+ * on it produce a write conflict — the driver's withTransaction retry gives
+ * the same serialization `SELECT ... FOR UPDATE` provided.
+ */
+
+import { randomUUID } from 'node:crypto';
+import type { ClientSession, Collection } from 'mongodb';
+import type { Q } from './db/client.js';
 import { monthKey, DEVICE_ACTIVE_WINDOW_MS } from './lib/time.js';
 import type { RouteGroup } from './routing/route.js';
 
-/** Repo functions accept a transaction too; drizzle tx objects satisfy the Db API surface used here. */
-export type Q = Db;
+export type { Q };
 export const asDb = (tx: unknown): Q => tx as Q;
+
+const S = (q: Q): { session?: ClientSession } => (q.session ? { session: q.session } : {});
+
+/** All documents key on a string `_id`. */
+type Doc = { _id: string } & Record<string, any>;
+
+const col = (q: Q, name: string): Collection<Doc> => q.db.collection<Doc>(name);
+
+const isDupKey = (err: unknown): boolean =>
+  typeof err === 'object' && err !== null && (err as { code?: number }).code === 11000;
+
+/** Strip the physical `_id`; documents carry logical `id` as a field. */
+const unpack = <T>(doc: Doc | null | undefined): T | undefined => {
+  if (!doc) return undefined;
+  const { _id, ...rest } = doc;
+  return rest as T;
+};
+
+const unpackAll = <T>(docs: Doc[]): T[] => docs.map((d) => unpack<T>(d)!);
 
 // ---------- users ----------
 
@@ -24,77 +58,98 @@ export async function upsertUserFromToken(
   db: Q,
   input: { firebaseUid: string; email: string; emailVerified: boolean },
 ): Promise<UserRow> {
-  const rows = await db
-    .insert(t.users)
-    .values(input)
-    .onConflictDoUpdate({
-      target: t.users.firebaseUid,
-      set: { email: input.email, emailVerified: input.emailVerified },
-    })
-    .returning();
-  return rows[0] as UserRow;
+  const id = randomUUID();
+  await col(db, 'users').updateOne(
+    { firebaseUid: input.firebaseUid },
+    {
+      $set: { email: input.email, emailVerified: input.emailVerified },
+      $setOnInsert: {
+        _id: id,
+        id,
+        firebaseUid: input.firebaseUid,
+        notifyOnPhone: false,
+        phoneAlertsSince: null,
+        createdAt: new Date(),
+        deletedAt: null,
+      },
+    },
+    { upsert: true, ...S(db) },
+  );
+  const doc = await col(db, 'users')
+    .findOne({ firebaseUid: input.firebaseUid }, S(db));
+  return unpack<UserRow>(doc)!;
 }
 
 export async function getUser(db: Q, userId: string): Promise<UserRow | undefined> {
-  const rows = await db.select().from(t.users).where(eq(t.users.id, userId)).limit(1);
-  return rows[0] as UserRow | undefined;
+  const doc = await col(db, 'users').findOne({ _id: userId }, S(db));
+  return unpack<UserRow>(doc);
 }
 
 export async function lockUser(db: Q, userId: string): Promise<UserRow | undefined> {
-  const rows = await db.select().from(t.users).where(eq(t.users.id, userId)).for('update').limit(1);
-  return rows[0] as UserRow | undefined;
+  // Write-touch the user doc so concurrent transactions conflict and retry —
+  // the Mongo equivalent of SELECT ... FOR UPDATE.
+  const doc = await col(db, 'users').findOneAndUpdate(
+    { _id: userId },
+    { $currentDate: { lockTouchedAt: true } },
+    { returnDocument: 'after', ...S(db) },
+  );
+  return unpack<UserRow>(doc);
 }
 
 export async function setNotifyFlag(db: Q, userId: string, enabled: boolean, now: Date): Promise<void> {
-  await db
-    .update(t.users)
-    .set(
-      enabled
-        ? { notifyOnPhone: true, phoneAlertsSince: now }
-        : { notifyOnPhone: false },
-    )
-    .where(eq(t.users.id, userId));
+  await col(db, 'users').updateOne(
+    { _id: userId },
+    enabled
+      ? { $set: { notifyOnPhone: true, phoneAlertsSince: now } }
+      : { $set: { notifyOnPhone: false } },
+    S(db),
+  );
 }
 
 /** Hard-cap sweep: turn off flags past the deadline. Returns affected user ids. */
 export async function hardCapSweep(db: Q, now: Date, awayMaxMs: number): Promise<string[]> {
-  const rows = await db.execute(
-    sql`UPDATE users SET notify_on_phone = false
-        WHERE notify_on_phone = true
-          AND phone_alerts_since IS NOT NULL
-          AND phone_alerts_since + ${awayMaxMs} * interval '1 millisecond' <= ${now.toISOString()}
-          AND deleted_at IS NULL
-        RETURNING id`,
-  );
-  return (rows as unknown as { id: string }[]).map((r) => r.id);
+  const deadline = new Date(now.getTime() - awayMaxMs);
+  const users = col(db, 'users');
+  const docs = await users
+    .find(
+      {
+        notifyOnPhone: true,
+        phoneAlertsSince: { $ne: null, $lte: deadline },
+        deletedAt: null,
+      },
+      { projection: { _id: 1 }, ...S(db) },
+    )
+    .toArray();
+  const ids = docs.map((d) => d._id as string);
+  if (ids.length > 0) {
+    await users.updateMany({ _id: { $in: ids } }, { $set: { notifyOnPhone: false } }, S(db));
+  }
+  return ids;
 }
 
 export async function deleteAccount(db: Q, userId: string): Promise<void> {
   const now = new Date();
-  await db.delete(t.deliveries).where(eq(t.deliveries.userId, userId));
-  await db.delete(t.events).where(eq(t.events.userId, userId));
-  await db.delete(t.signals).where(eq(t.signals.userId, userId));
-  await db.delete(t.groups).where(eq(t.groups.userId, userId));
-  await db.delete(t.usageMonthly).where(eq(t.usageMonthly.userId, userId));
-  await db.execute(
-    sql`DELETE FROM jobs WHERE status = 'pending' AND payload->>'user_id' = ${userId}`,
-  );
-  await db.execute(
-    sql`DELETE FROM rate_limits WHERE key LIKE ${'u:' + userId + ':%'}`,
-  );
-  await db
-    .update(t.deviceAuthorizations)
-    .set({ status: 'expired' })
-    .where(and(eq(t.deviceAuthorizations.userId, userId), eq(t.deviceAuthorizations.status, 'pending')));
-  await db
-    .update(t.devices)
-    .set({ revokedAt: now })
-    .where(and(eq(t.devices.userId, userId), isNull(t.devices.revokedAt)));
-  await db
-    .update(t.machines)
-    .set({ revokedAt: now })
-    .where(and(eq(t.machines.userId, userId), isNull(t.machines.revokedAt)));
-  await db.update(t.users).set({ deletedAt: now }).where(eq(t.users.id, userId));
+  await col(db, 'deliveries').deleteMany({ userId }, S(db));
+  await col(db, 'events').deleteMany({ userId }, S(db));
+  await col(db, 'signals').deleteMany({ userId }, S(db));
+  await col(db, 'groups').deleteMany({ userId }, S(db));
+  await col(db, 'usage_monthly').deleteMany({ userId }, S(db));
+  await col(db, 'jobs')
+    .deleteMany({ status: 'pending', 'payload.user_id': userId }, S(db));
+  await col(db, 'rate_limits')
+    .deleteMany({ _id: { $regex: `^u:${userId}:` } }, S(db));
+  await col(db, 'device_authorizations')
+    .updateMany(
+      { userId, status: 'pending' },
+      { $set: { status: 'expired' } },
+      S(db),
+    );
+  await col(db, 'devices')
+    .updateMany({ userId, revokedAt: null }, { $set: { revokedAt: now } }, S(db));
+  await col(db, 'machines')
+    .updateMany({ userId, revokedAt: null }, { $set: { revokedAt: now } }, S(db));
+  await col(db, 'users')
+    .updateOne({ _id: userId }, { $set: { deletedAt: now } }, S(db));
 }
 
 // ---------- devices ----------
@@ -110,32 +165,35 @@ export interface DeviceRow {
 }
 
 export async function getDevice(db: Q, deviceId: string): Promise<DeviceRow | undefined> {
-  const rows = await db.select().from(t.devices).where(eq(t.devices.id, deviceId)).limit(1);
-  return rows[0] as DeviceRow | undefined;
+  const doc = await col(db, 'devices').findOne({ _id: deviceId }, S(db));
+  return unpack<DeviceRow>(doc);
 }
 
 export async function findDeviceByTokenHash(db: Q, userId: string, hash: string): Promise<DeviceRow | undefined> {
-  const rows = await db
-    .select()
-    .from(t.devices)
-    .where(and(eq(t.devices.userId, userId), eq(t.devices.fcmTokenHash, hash)))
-    .limit(1);
-  return rows[0] as DeviceRow | undefined;
+  const doc = await col(db, 'devices')
+    .findOne({ userId, fcmTokenHash: hash }, S(db));
+  return unpack<DeviceRow>(doc);
 }
 
 export async function countLiveDevices(db: Q, userId: string): Promise<number> {
-  const rows = await db
-    .select({ n: sql<number>`count(*)::int` })
-    .from(t.devices)
-    .where(and(eq(t.devices.userId, userId), isNull(t.devices.revokedAt)));
-  return rows[0]!.n;
+  return col(db, 'devices')
+    .countDocuments({ userId, revokedAt: null }, S(db));
 }
 
 export async function insertDevice(
   db: Q,
   row: { id: string; userId: string; fcmTokenEnc: string; fcmTokenHash: string; deviceSecretHash: string },
 ): Promise<void> {
-  await db.insert(t.devices).values(row);
+  await col(db, 'devices').insertOne(
+    {
+      _id: row.id,
+      ...row,
+      createdAt: new Date(),
+      lastSeenAt: new Date(),
+      revokedAt: null,
+    },
+    S(db),
+  );
 }
 
 export async function rotateDeviceSecret(
@@ -144,43 +202,39 @@ export async function rotateDeviceSecret(
   deviceSecretHash: string,
   now: Date,
 ): Promise<void> {
-  await db
-    .update(t.devices)
-    .set({ deviceSecretHash, lastSeenAt: now, revokedAt: null })
-    .where(eq(t.devices.id, deviceId));
+  await col(db, 'devices').updateOne(
+    { _id: deviceId },
+    { $set: { deviceSecretHash, lastSeenAt: now, revokedAt: null } },
+    S(db),
+  );
 }
 
 export async function revokeDevice(db: Q, userId: string, deviceId: string, now: Date): Promise<boolean> {
-  const rows = await db
-    .update(t.devices)
-    .set({ revokedAt: now })
-    .where(and(eq(t.devices.id, deviceId), eq(t.devices.userId, userId), isNull(t.devices.revokedAt)))
-    .returning({ id: t.devices.id });
-  return rows.length > 0;
+  const res = await col(db, 'devices').updateOne(
+    { _id: deviceId, userId, revokedAt: null },
+    { $set: { revokedAt: now } },
+    S(db),
+  );
+  return res.modifiedCount > 0;
 }
 
 export async function revokeDeviceById(db: Q, deviceId: string, now: Date): Promise<void> {
-  await db.update(t.devices).set({ revokedAt: now }).where(eq(t.devices.id, deviceId));
+  await col(db, 'devices')
+    .updateOne({ _id: deviceId }, { $set: { revokedAt: now } }, S(db));
 }
 
 export async function touchDeviceSeen(db: Q, deviceId: string, now: Date): Promise<void> {
-  await db.update(t.devices).set({ lastSeenAt: now }).where(eq(t.devices.id, deviceId));
+  await col(db, 'devices')
+    .updateOne({ _id: deviceId }, { $set: { lastSeenAt: now } }, S(db));
 }
 
 /** Devices eligible for pushes: not revoked AND last seen strictly within 14 days. */
 export async function listActiveDevices(db: Q, userId: string, now: Date): Promise<DeviceRow[]> {
   const cutoff = new Date(now.getTime() - DEVICE_ACTIVE_WINDOW_MS);
-  const rows = await db
-    .select()
-    .from(t.devices)
-    .where(
-      and(
-        eq(t.devices.userId, userId),
-        isNull(t.devices.revokedAt),
-        gt(t.devices.lastSeenAt, cutoff),
-      ),
-    );
-  return rows as DeviceRow[];
+  const docs = await col(db, 'devices')
+    .find({ userId, revokedAt: null, lastSeenAt: { $gt: cutoff } }, S(db))
+    .toArray();
+  return unpackAll<DeviceRow>(docs);
 }
 
 // ---------- machines ----------
@@ -198,41 +252,47 @@ export interface MachineRow {
 }
 
 export async function getMachine(db: Q, machineId: string): Promise<MachineRow | undefined> {
-  const rows = await db.select().from(t.machines).where(eq(t.machines.id, machineId)).limit(1);
-  return rows[0] as MachineRow | undefined;
+  const doc = await col(db, 'machines').findOne({ _id: machineId }, S(db));
+  return unpack<MachineRow>(doc);
 }
 
 export async function countLiveMachines(db: Q, userId: string): Promise<number> {
-  const rows = await db
-    .select({ n: sql<number>`count(*)::int` })
-    .from(t.machines)
-    .where(and(eq(t.machines.userId, userId), isNull(t.machines.revokedAt)));
-  return rows[0]!.n;
+  return col(db, 'machines').countDocuments({ userId, revokedAt: null }, S(db));
 }
 
 export async function insertMachine(
   db: Q,
   row: { id: string; userId: string; name: string; os: string; keyHash: string },
 ): Promise<void> {
-  await db.insert(t.machines).values(row);
+  await col(db, 'machines').insertOne(
+    {
+      _id: row.id,
+      ...row,
+      createdAt: new Date(),
+      lastHeartbeatAt: null,
+      activeRuns: 0,
+      silentAlertedAt: null,
+      revokedAt: null,
+    },
+    S(db),
+  );
 }
 
 export async function listMachines(db: Q, userId: string): Promise<MachineRow[]> {
-  const rows = await db
-    .select()
-    .from(t.machines)
-    .where(and(eq(t.machines.userId, userId), isNull(t.machines.revokedAt)))
-    .orderBy(t.machines.createdAt);
-  return rows as MachineRow[];
+  const docs = await col(db, 'machines')
+    .find({ userId, revokedAt: null }, S(db))
+    .sort({ createdAt: 1 })
+    .toArray();
+  return unpackAll<MachineRow>(docs);
 }
 
 export async function revokeMachine(db: Q, userId: string, machineId: string, now: Date): Promise<boolean> {
-  const rows = await db
-    .update(t.machines)
-    .set({ revokedAt: now })
-    .where(and(eq(t.machines.id, machineId), eq(t.machines.userId, userId), isNull(t.machines.revokedAt)))
-    .returning({ id: t.machines.id });
-  return rows.length > 0;
+  const res = await col(db, 'machines').updateOne(
+    { _id: machineId, userId, revokedAt: null },
+    { $set: { revokedAt: now } },
+    S(db),
+  );
+  return res.modifiedCount > 0;
 }
 
 export async function recordHeartbeat(
@@ -241,42 +301,42 @@ export async function recordHeartbeat(
   activeRuns: number,
   now: Date,
 ): Promise<void> {
-  await db
-    .update(t.machines)
-    .set({ lastHeartbeatAt: now, activeRuns, silentAlertedAt: null })
-    .where(eq(t.machines.id, machineId));
+  await col(db, 'machines').updateOne(
+    { _id: machineId },
+    { $set: { lastHeartbeatAt: now, activeRuns, silentAlertedAt: null } },
+    S(db),
+  );
 }
 
 /** Machines silent at `now` that haven't been marked yet. */
 export async function silentMachines(db: Q, now: Date, thresholdMs: number): Promise<MachineRow[]> {
   const cutoff = new Date(now.getTime() - thresholdMs);
-  const rows = await db
-    .select()
-    .from(t.machines)
-    .where(
-      and(
-        isNull(t.machines.revokedAt),
-        isNull(t.machines.silentAlertedAt),
-        isNotNull(t.machines.lastHeartbeatAt),
-        lt(t.machines.lastHeartbeatAt, cutoff),
-      ),
-    );
-  return rows as MachineRow[];
+  const docs = await col(db, 'machines')
+    .find(
+      {
+        revokedAt: null,
+        silentAlertedAt: null,
+        lastHeartbeatAt: { $lt: cutoff },
+      },
+      S(db),
+    )
+    .toArray();
+  return unpackAll<MachineRow>(docs);
 }
 
 export async function markSilentAlerted(db: Q, machineId: string, now: Date): Promise<void> {
-  await db.update(t.machines).set({ silentAlertedAt: now }).where(eq(t.machines.id, machineId));
+  await col(db, 'machines')
+    .updateOne({ _id: machineId }, { $set: { silentAlertedAt: now } }, S(db));
 }
 
 /** Most recent run_id reported by a machine, or null. */
 export async function latestRunId(db: Q, userId: string, machineId: string): Promise<string | null> {
-  const rows = await db
-    .select({ runId: t.events.runId })
-    .from(t.events)
-    .where(and(eq(t.events.userId, userId), eq(t.events.machineId, machineId)))
-    .orderBy(desc(t.events.eventTimestamp))
-    .limit(1);
-  return rows[0]?.runId ?? null;
+  const doc = await col(db, 'events')
+    .find({ userId, machineId }, { projection: { runId: 1 }, ...S(db) })
+    .sort({ eventTimestamp: -1 })
+    .limit(1)
+    .next();
+  return (doc?.runId as string | undefined) ?? null;
 }
 
 // ---------- device authorizations ----------
@@ -307,45 +367,49 @@ export async function insertAuthorization(
     sourceIpHash: string | null;
   },
 ): Promise<void> {
-  await db.insert(t.deviceAuthorizations).values({ ...row, status: 'pending' });
+  const id = randomUUID();
+  await col(db, 'device_authorizations').insertOne(
+    {
+      _id: id,
+      id,
+      ...row,
+      status: 'pending',
+      userId: null,
+      createdAt: new Date(),
+      lastPolledAt: null,
+    },
+    S(db),
+  );
 }
 
 export async function findAuthByDeviceCode(db: Q, deviceCodeHash: string): Promise<AuthorizationRow | undefined> {
-  const rows = await db
-    .select()
-    .from(t.deviceAuthorizations)
-    .where(eq(t.deviceAuthorizations.deviceCodeHash, deviceCodeHash))
-    .limit(1);
-  return rows[0] as AuthorizationRow | undefined;
+  const doc = await col(db, 'device_authorizations')
+    .findOne({ deviceCodeHash }, S(db));
+  return unpack<AuthorizationRow>(doc);
 }
 
 export async function findAuthByUserCode(db: Q, userCodeHash: string): Promise<AuthorizationRow | undefined> {
-  const rows = await db
-    .select()
-    .from(t.deviceAuthorizations)
-    .where(eq(t.deviceAuthorizations.userCodeHash, userCodeHash))
-    .limit(1);
-  return rows[0] as AuthorizationRow | undefined;
+  const doc = await col(db, 'device_authorizations')
+    .findOne({ userCodeHash }, S(db));
+  return unpack<AuthorizationRow>(doc);
+}
+
+/** Lock via a write-touch so concurrent transactions conflict and retry. */
+async function lockAuth(db: Q, filter: Record<string, unknown>): Promise<AuthorizationRow | undefined> {
+  const doc = await col(db, 'device_authorizations').findOneAndUpdate(
+    filter,
+    { $currentDate: { lockTouchedAt: true } },
+    { returnDocument: 'after', ...S(db) },
+  );
+  return unpack<AuthorizationRow>(doc);
 }
 
 export async function lockAuthByUserCode(db: Q, userCodeHash: string): Promise<AuthorizationRow | undefined> {
-  const rows = await db
-    .select()
-    .from(t.deviceAuthorizations)
-    .where(eq(t.deviceAuthorizations.userCodeHash, userCodeHash))
-    .for('update')
-    .limit(1);
-  return rows[0] as AuthorizationRow | undefined;
+  return lockAuth(db, { userCodeHash });
 }
 
 export async function lockAuthByDeviceCode(db: Q, deviceCodeHash: string): Promise<AuthorizationRow | undefined> {
-  const rows = await db
-    .select()
-    .from(t.deviceAuthorizations)
-    .where(eq(t.deviceAuthorizations.deviceCodeHash, deviceCodeHash))
-    .for('update')
-    .limit(1);
-  return rows[0] as AuthorizationRow | undefined;
+  return lockAuth(db, { deviceCodeHash });
 }
 
 export async function updateAuthorization(
@@ -358,11 +422,13 @@ export async function updateAuthorization(
     lastPolledAt: Date;
   }>,
 ): Promise<void> {
-  await db.update(t.deviceAuthorizations).set(set).where(eq(t.deviceAuthorizations.id, id));
+  await col(db, 'device_authorizations')
+    .updateOne({ _id: id }, { $set: set }, S(db));
 }
 
 export async function deleteExpiredAuthorizations(db: Q, now: Date): Promise<void> {
-  await db.delete(t.deviceAuthorizations).where(lt(t.deviceAuthorizations.expiresAt, now));
+  await col(db, 'device_authorizations')
+    .deleteMany({ expiresAt: { $lt: now } }, S(db));
 }
 
 // ---------- events ----------
@@ -384,13 +450,12 @@ export interface EventRow {
   routing: string;
 }
 
+const eventKey = (userId: string, id: string) => `${userId}:${id}`;
+
 export async function eventExists(db: Q, userId: string, id: string): Promise<boolean> {
-  const rows = await db
-    .select({ id: t.events.id })
-    .from(t.events)
-    .where(and(eq(t.events.userId, userId), eq(t.events.id, id)))
-    .limit(1);
-  return rows.length > 0;
+  const doc = await col(db, 'events')
+    .findOne({ _id: eventKey(userId, id) }, { projection: { _id: 1 }, ...S(db) });
+  return doc !== null;
 }
 
 /** Tuple dedupe: same user + run_id + type + summary within +/- 10 minutes of the new event timestamp. */
@@ -404,21 +469,17 @@ export async function findDedupeMatch(
 ): Promise<boolean> {
   const lo = new Date(eventTimestamp.getTime() - 600_000);
   const hi = new Date(eventTimestamp.getTime() + 600_000);
-  const rows = await db
-    .select({ id: t.events.id })
-    .from(t.events)
-    .where(
-      and(
-        eq(t.events.userId, userId),
-        eq(t.events.runId, runId),
-        eq(t.events.type, type),
-        eq(t.events.summary, summary),
-        gt(t.events.eventTimestamp, lo),
-        lt(t.events.eventTimestamp, hi),
-      ),
-    )
-    .limit(1);
-  return rows.length > 0;
+  const doc = await col(db, 'events').findOne(
+    {
+      userId,
+      runId,
+      type,
+      summary,
+      eventTimestamp: { $gt: lo, $lt: hi },
+    },
+    { projection: { _id: 1 }, ...S(db) },
+  );
+  return doc !== null;
 }
 
 export async function insertEvent(
@@ -440,23 +501,29 @@ export async function insertEvent(
     routing: string;
   },
 ): Promise<void> {
-  await db.insert(t.events).values(row);
+  await col(db, 'events').insertOne(
+    { _id: eventKey(row.userId, row.id), ...row, receivedAt: new Date() },
+    S(db),
+  );
 }
 
 export async function getEvent(db: Q, userId: string, id: string): Promise<EventRow | undefined> {
-  const rows = await db
-    .select()
-    .from(t.events)
-    .where(and(eq(t.events.userId, userId), eq(t.events.id, id)))
-    .limit(1);
-  return rows[0] as EventRow | undefined;
+  const doc = await col(db, 'events')
+    .findOne({ _id: eventKey(userId, id) }, S(db));
+  return unpack<EventRow>(doc);
 }
 
 export async function deleteOldEvents(db: Q, cutoff: Date): Promise<void> {
-  await db.delete(t.deliveries).where(
-    sql`event_id IN (SELECT id FROM events WHERE events.user_id = deliveries.user_id AND events.received_at < ${cutoff.toISOString()})`,
-  );
-  await db.delete(t.events).where(lt(t.events.receivedAt, cutoff));
+  const stale = await col(db, 'events')
+    .find({ receivedAt: { $lt: cutoff } }, { projection: { userId: 1, id: 1 }, ...S(db) })
+    .toArray();
+  if (stale.length > 0) {
+    await col(db, 'deliveries').deleteMany(
+      { $or: stale.map((e) => ({ userId: e.userId, eventId: e.id })) },
+      S(db),
+    );
+  }
+  await col(db, 'events').deleteMany({ receivedAt: { $lt: cutoff } }, S(db));
 }
 
 // ---------- signals ----------
@@ -473,34 +540,28 @@ export async function insertSignal(
     idleSeconds: number | null;
   },
 ): Promise<'inserted' | 'duplicate'> {
-  const res = await db.execute(
-    sql`INSERT INTO signals (user_id, id, machine_id, kind, run_id, at, idle_seconds)
-        VALUES (${row.userId}, ${row.id}, ${row.machineId}, ${row.kind}, ${row.runId}, ${row.at.toISOString()}, ${row.idleSeconds})
-        ON CONFLICT (user_id, id) DO NOTHING`,
-  );
-  // postgres-js returns affected row count on the result object
-  const count = (res as unknown as { count?: number }).count;
-  return count === 0 ? 'duplicate' : 'inserted';
+  try {
+    await col(db, 'signals').insertOne(
+      { _id: `${row.userId}:${row.id}`, ...row, receivedAt: new Date() },
+      S(db),
+    );
+    return 'inserted';
+  } catch (err) {
+    if (isDupKey(err)) return 'duplicate';
+    throw err;
+  }
 }
 
 export async function hasOutputSeen(db: Q, userId: string, runId: string, atOrAfter: Date): Promise<boolean> {
-  const rows = await db
-    .select({ id: t.signals.id })
-    .from(t.signals)
-    .where(
-      and(
-        eq(t.signals.userId, userId),
-        eq(t.signals.kind, 'output_seen'),
-        eq(t.signals.runId, runId),
-        sql`${t.signals.at} >= ${atOrAfter.toISOString()}`,
-      ),
-    )
-    .limit(1);
-  return rows.length > 0;
+  const doc = await col(db, 'signals').findOne(
+    { userId, kind: 'output_seen', runId, at: { $gte: atOrAfter } },
+    { projection: { _id: 1 }, ...S(db) },
+  );
+  return doc !== null;
 }
 
 export async function deleteOldSignals(db: Q, cutoff: Date): Promise<void> {
-  await db.delete(t.signals).where(lt(t.signals.receivedAt, cutoff));
+  await col(db, 'signals').deleteMany({ receivedAt: { $lt: cutoff } }, S(db));
 }
 
 // ---------- deliveries ----------
@@ -520,6 +581,9 @@ export interface DeliveryRow {
   ackedAt: Date | null;
 }
 
+const deliveryDedupe = (eventId: string, channel: string, deviceId: string | null) =>
+  `${eventId}|${channel}|${deviceId ?? ''}`;
+
 export async function insertDelivery(
   db: Q,
   row: {
@@ -533,51 +597,50 @@ export async function insertDelivery(
     skipReason?: string;
   },
 ): Promise<string> {
-  const rows = await db
-    .insert(t.deliveries)
-    .values({
-      userId: row.userId,
-      eventId: row.eventId,
-      channel: row.channel,
-      deviceId: row.deviceId,
-      status: row.status ?? 'pending',
-      ...(row.skipReason ? { skipReason: row.skipReason } : {}),
-      ...(row.payload ? { payload: row.payload } : {}),
-      ...(row.nextAttemptAt ? { nextAttemptAt: row.nextAttemptAt } : {}),
-    })
-    .onConflictDoNothing()
-    .returning({ id: t.deliveries.id });
-  if (rows.length > 0) return rows[0]!.id;
+  const id = randomUUID();
+  const dedupe = deliveryDedupe(row.eventId, row.channel, row.deviceId);
+  try {
+    await col(db, 'deliveries').insertOne(
+      {
+        _id: id,
+        id,
+        userId: row.userId,
+        eventId: row.eventId,
+        channel: row.channel,
+        deviceId: row.deviceId,
+        dedupe,
+        status: row.status ?? 'pending',
+        skipReason: row.skipReason ?? null,
+        payload: row.payload ?? null,
+        attempts: 0,
+        nextAttemptAt: row.nextAttemptAt ?? new Date(),
+        sentAt: null,
+        ackedAt: null,
+      },
+      S(db),
+    );
+    return id;
+  } catch (err) {
+    if (!isDupKey(err)) throw err;
+  }
   // already exists (idempotent retry): return existing id
-  const existing = await db
-    .select({ id: t.deliveries.id })
-    .from(t.deliveries)
-    .where(
-      and(
-        eq(t.deliveries.eventId, row.eventId),
-        eq(t.deliveries.channel, row.channel),
-        row.deviceId === null
-          ? isNull(t.deliveries.deviceId)
-          : eq(t.deliveries.deviceId, row.deviceId),
-      ),
-    )
-    .limit(1);
-  return existing[0]!.id;
+  const existing = await col(db, 'deliveries')
+    .findOne({ dedupe }, { projection: { id: 1 }, ...S(db) });
+  return existing!.id as string;
 }
 
 export async function getDelivery(db: Q, id: string): Promise<DeliveryRow | undefined> {
-  const rows = await db.select().from(t.deliveries).where(eq(t.deliveries.id, id)).limit(1);
-  return rows[0] as DeliveryRow | undefined;
+  const doc = await col(db, 'deliveries').findOne({ _id: id }, S(db));
+  return unpack<DeliveryRow>(doc);
 }
 
 export async function dueDeliveries(db: Q, now: Date, limit: number): Promise<DeliveryRow[]> {
-  const rows = await db
-    .select()
-    .from(t.deliveries)
-    .where(and(eq(t.deliveries.status, 'pending'), sql`${t.deliveries.nextAttemptAt} <= ${now.toISOString()}`))
-    .orderBy(t.deliveries.nextAttemptAt)
-    .limit(limit);
-  return rows as DeliveryRow[];
+  const docs = await col(db, 'deliveries')
+    .find({ status: 'pending', nextAttemptAt: { $lte: now } }, S(db))
+    .sort({ nextAttemptAt: 1 })
+    .limit(limit)
+    .toArray();
+  return unpackAll<DeliveryRow>(docs);
 }
 
 /**
@@ -585,18 +648,12 @@ export async function dueDeliveries(db: Q, now: Date, limit: number): Promise<De
  * forward. Returns the claimed row, or undefined if another worker took it.
  */
 export async function claimDelivery(db: Q, id: string, now: Date): Promise<DeliveryRow | undefined> {
-  const rows = await db
-    .update(t.deliveries)
-    .set({ attempts: sql`attempts + 1`, nextAttemptAt: new Date(now.getTime() + 600_000) })
-    .where(
-      and(
-        eq(t.deliveries.id, id),
-        eq(t.deliveries.status, 'pending'),
-        sql`${t.deliveries.nextAttemptAt} <= ${now.toISOString()}`,
-      ),
-    )
-    .returning();
-  return rows[0] as DeliveryRow | undefined;
+  const doc = await col(db, 'deliveries').findOneAndUpdate(
+    { _id: id, status: 'pending', nextAttemptAt: { $lte: now } },
+    { $inc: { attempts: 1 }, $set: { nextAttemptAt: new Date(now.getTime() + 600_000) } },
+    { returnDocument: 'after', ...S(db) },
+  );
+  return unpack<DeliveryRow>(doc);
 }
 
 export async function markDelivery(
@@ -612,7 +669,7 @@ export async function markDelivery(
     ackedAt: Date;
   }>,
 ): Promise<void> {
-  await db.update(t.deliveries).set(set).where(eq(t.deliveries.id, id));
+  await col(db, 'deliveries').updateOne({ _id: id }, { $set: set }, S(db));
 }
 
 export async function ackDelivery(
@@ -621,52 +678,32 @@ export async function ackDelivery(
   deviceId: string,
   now: Date,
 ): Promise<DeliveryRow | undefined> {
-  const rows = await db
-    .update(t.deliveries)
-    .set({ status: 'acked', ackedAt: now })
-    .where(
-      and(
-        eq(t.deliveries.id, deliveryId),
-        eq(t.deliveries.deviceId, deviceId),
-        eq(t.deliveries.channel, 'push'),
-      ),
-    )
-    .returning();
-  return rows[0] as DeliveryRow | undefined;
+  const doc = await col(db, 'deliveries').findOneAndUpdate(
+    { _id: deliveryId, deviceId, channel: 'push' },
+    { $set: { status: 'acked', ackedAt: now } },
+    { returnDocument: 'after', ...S(db) },
+  );
+  return unpack<DeliveryRow>(doc);
 }
 
 export async function eventHasAckedPush(db: Q, userId: string, eventId: string): Promise<boolean> {
-  const rows = await db
-    .select({ id: t.deliveries.id })
-    .from(t.deliveries)
-    .where(
-      and(
-        eq(t.deliveries.userId, userId),
-        eq(t.deliveries.eventId, eventId),
-        eq(t.deliveries.channel, 'push'),
-        eq(t.deliveries.status, 'acked'),
-      ),
-    )
-    .limit(1);
-  return rows.length > 0;
+  const doc = await col(db, 'deliveries').findOne(
+    { userId, eventId, channel: 'push', status: 'acked' },
+    { projection: { _id: 1 }, ...S(db) },
+  );
+  return doc !== null;
 }
 
 export async function getEmailDelivery(db: Q, eventId: string): Promise<DeliveryRow | undefined> {
-  const rows = await db
-    .select()
-    .from(t.deliveries)
-    .where(and(eq(t.deliveries.eventId, eventId), eq(t.deliveries.channel, 'email')))
-    .limit(1);
-  return rows[0] as DeliveryRow | undefined;
+  const doc = await col(db, 'deliveries')
+    .findOne({ eventId, channel: 'email' }, S(db));
+  return unpack<DeliveryRow>(doc);
 }
 
 export async function hasEmailDelivery(db: Q, eventId: string): Promise<boolean> {
-  const rows = await db
-    .select({ id: t.deliveries.id })
-    .from(t.deliveries)
-    .where(and(eq(t.deliveries.eventId, eventId), eq(t.deliveries.channel, 'email')))
-    .limit(1);
-  return rows.length > 0;
+  const doc = await col(db, 'deliveries')
+    .findOne({ eventId, channel: 'email' }, { projection: { _id: 1 }, ...S(db) });
+  return doc !== null;
 }
 
 // ---------- groups ----------
@@ -683,29 +720,22 @@ export interface GroupRow {
   closedAt: Date | null;
 }
 
+const groupKey = (userId: string, agent: string, windowStart: Date) =>
+  `${userId}:${agent}:${windowStart.toISOString()}`;
+
 export async function getOpenGroup(db: Q, userId: string, agent: string): Promise<GroupRow | undefined> {
-  const rows = await db
-    .select()
-    .from(t.groups)
-    .where(and(eq(t.groups.userId, userId), eq(t.groups.agent, agent), isNull(t.groups.closedAt)))
-    .orderBy(desc(t.groups.windowStart))
-    .limit(1);
-  return rows[0] as GroupRow | undefined;
+  const doc = await col(db, 'groups')
+    .find({ userId, agent, closedAt: null }, S(db))
+    .sort({ windowStart: -1 })
+    .limit(1)
+    .next();
+  return unpack<GroupRow>(doc);
 }
 
 export async function getGroup(db: Q, userId: string, agent: string, windowStart: Date): Promise<GroupRow | undefined> {
-  const rows = await db
-    .select()
-    .from(t.groups)
-    .where(
-      and(
-        eq(t.groups.userId, userId),
-        eq(t.groups.agent, agent),
-        eq(t.groups.windowStart, windowStart),
-      ),
-    )
-    .limit(1);
-  return rows[0] as GroupRow | undefined;
+  const doc = await col(db, 'groups')
+    .findOne({ _id: groupKey(userId, agent, windowStart) }, S(db));
+  return unpack<GroupRow>(doc);
 }
 
 export async function applyGroupUpdate(
@@ -723,28 +753,22 @@ export async function applyGroupUpdate(
   },
 ): Promise<void> {
   const windowStart = new Date(u.windowStart);
+  const _id = groupKey(userId, agent, windowStart);
   if (u.action === 'create') {
-    await db
-      .insert(t.groups)
-      .values({
-        userId,
-        agent,
-        windowStart,
-        count: u.count,
-        suppressed: u.suppressed,
-        latestEventId: u.latestEventId,
-        latestSummary: u.latestSummary,
-      })
-      .onConflictDoUpdate({
-        target: [t.groups.userId, t.groups.agent, t.groups.windowStart],
-        set: {
+    await col(db, 'groups').updateOne(
+      { _id },
+      {
+        $set: {
           count: u.count,
           suppressed: u.suppressed,
           latestEventId: u.latestEventId,
           latestSummary: u.latestSummary,
           closedAt: null,
         },
-      });
+        $setOnInsert: { userId, agent, windowStart, triggerEventId: null },
+      },
+      { upsert: true, ...S(db) },
+    );
     return;
   }
   const set: Record<string, unknown> = {
@@ -754,30 +778,15 @@ export async function applyGroupUpdate(
     latestSummary: u.latestSummary,
   };
   if (u.triggerEventId) set['triggerEventId'] = u.triggerEventId;
-  await db
-    .update(t.groups)
-    .set(set)
-    .where(
-      and(
-        eq(t.groups.userId, userId),
-        eq(t.groups.agent, agent),
-        eq(t.groups.windowStart, windowStart),
-      ),
-    );
+  await col(db, 'groups').updateOne({ _id }, { $set: set }, S(db));
 }
 
 export async function closeGroup(db: Q, userId: string, agent: string, windowStart: Date, now: Date): Promise<void> {
-  await db
-    .update(t.groups)
-    .set({ closedAt: now })
-    .where(
-      and(
-        eq(t.groups.userId, userId),
-        eq(t.groups.agent, agent),
-        eq(t.groups.windowStart, windowStart),
-        isNull(t.groups.closedAt),
-      ),
-    );
+  await col(db, 'groups').updateOne(
+    { _id: groupKey(userId, agent, windowStart), closedAt: null },
+    { $set: { closedAt: now } },
+    S(db),
+  );
 }
 
 // ---------- jobs ----------
@@ -798,45 +807,65 @@ export async function enqueueJob(
   runAt: Date,
   dedupeKey?: string,
 ): Promise<void> {
-  await db
-    .insert(t.jobs)
-    .values({ kind, payload, runAt, dedupeKey: dedupeKey ?? null })
-    .onConflictDoNothing();
+  const id = randomUUID();
+  try {
+    await col(db, 'jobs').insertOne(
+      {
+        _id: id,
+        id,
+        kind,
+        payload,
+        dedupeKey: dedupeKey ?? null,
+        runAt,
+        status: 'pending',
+        attempts: 0,
+        lockedUntil: null,
+        createdAt: new Date(),
+      },
+      S(db),
+    );
+  } catch (err) {
+    if (!isDupKey(err)) throw err;
+  }
 }
 
+/**
+ * Claim due jobs: repeatedly grab the earliest pending job atomically — the
+ * Mongo equivalent of `FOR UPDATE SKIP LOCKED` (each findOneAndUpdate only
+ * matches a job no other worker has claimed).
+ */
 export async function claimDueJobs(db: Q, now: Date, limit: number): Promise<JobRow[]> {
-  const rows = await db.execute(
-    sql`UPDATE jobs SET status = 'running', locked_until = ${new Date(now.getTime() + 60_000).toISOString()}
-        WHERE id IN (
-          SELECT id FROM jobs
-          WHERE status = 'pending' AND run_at <= ${now.toISOString()}
-          ORDER BY run_at
-          LIMIT ${limit}
-          FOR UPDATE SKIP LOCKED
-        )
-        RETURNING *`,
-  );
-  return (rows as unknown as Record<string, unknown>[]).map((r) => ({
-    id: r['id'] as string,
-    kind: r['kind'] as string,
-    payload: r['payload'] as Record<string, unknown>,
-    runAt: new Date(r['run_at'] as string),
-    status: r['status'] as string,
-    attempts: r['attempts'] as number,
-  }));
+  const jobs = col(db, 'jobs');
+  const claimed: JobRow[] = [];
+  const lockedUntil = new Date(now.getTime() + 60_000);
+  for (let i = 0; i < limit; i++) {
+    const doc = await jobs.findOneAndUpdate(
+      { status: 'pending', runAt: { $lte: now } },
+      { $set: { status: 'running', lockedUntil } },
+      { sort: { runAt: 1 }, returnDocument: 'after', ...S(db) },
+    );
+    if (!doc) break;
+    claimed.push(unpack<JobRow>(doc)!);
+  }
+  return claimed;
 }
 
 export async function finishJob(db: Q, id: string, status: 'done' | 'pending' | 'failed', runAt?: Date): Promise<void> {
   if (status === 'pending' && runAt) {
-    await db
-      .update(t.jobs)
-      .set({ status: 'pending', runAt, lockedUntil: null, attempts: sql`attempts + 1` })
-      .where(eq(t.jobs.id, id));
+    await col(db, 'jobs').updateOne(
+      { _id: id },
+      { $set: { status: 'pending', runAt, lockedUntil: null }, $inc: { attempts: 1 } },
+      S(db),
+    );
   } else {
-    await db
-      .update(t.jobs)
-      .set({ status, lockedUntil: null, ...(status === 'failed' ? { attempts: sql`attempts + 1` } : {}) })
-      .where(eq(t.jobs.id, id));
+    await col(db, 'jobs').updateOne(
+      { _id: id },
+      {
+        $set: { status, lockedUntil: null },
+        ...(status === 'failed' ? { $inc: { attempts: 1 } } : {}),
+      },
+      S(db),
+    );
   }
 }
 
@@ -854,53 +883,59 @@ export async function hitRateLimit(
   now: Date,
 ): Promise<number | null> {
   const windowStart = new Date(Math.floor(now.getTime() / (windowSeconds * 1000)) * windowSeconds * 1000);
-  const rows = await db.execute(
-    sql`INSERT INTO rate_limits (key, window_start, count)
-        VALUES (${key}, ${windowStart.toISOString()}, 1)
-        ON CONFLICT (key) DO UPDATE
-          SET count = CASE WHEN rate_limits.window_start = ${windowStart.toISOString()}
-                           THEN rate_limits.count + 1 ELSE 1 END,
-              window_start = ${windowStart.toISOString()}
-        RETURNING count`,
+  const doc = await col(db, 'rate_limits').findOneAndUpdate(
+    { _id: key },
+    [
+      {
+        $set: {
+          count: {
+            $cond: [
+              { $eq: ['$windowStart', windowStart] },
+              { $add: [{ $ifNull: ['$count', 0] }, 1] },
+              1,
+            ],
+          },
+          windowStart,
+        },
+      },
+    ],
+    { upsert: true, returnDocument: 'after', ...S(db) },
   );
-  const count = (rows as unknown as { count: number }[])[0]!.count;
+  const count = doc!.count as number;
   if (count <= limit) return null;
   return windowSeconds - Math.floor((now.getTime() - windowStart.getTime()) / 1000);
 }
 
 // ---------- usage ----------
 
+const usageKey = (userId: string, month: string) => `${userId}:${month}`;
+
 export async function emailsSentThisMonth(db: Q, userId: string, now: Date): Promise<number> {
-  const rows = await db
-    .select({ emailsSent: t.usageMonthly.emailsSent })
-    .from(t.usageMonthly)
-    .where(and(eq(t.usageMonthly.userId, userId), eq(t.usageMonthly.month, monthKey(now))))
-    .limit(1);
-  return rows[0]?.emailsSent ?? 0;
+  const doc = await col(db, 'usage_monthly')
+    .findOne({ _id: usageKey(userId, monthKey(now)) }, { projection: { emailsSent: 1 }, ...S(db) });
+  return (doc?.emailsSent as number | undefined) ?? 0;
 }
 
 export async function incrementEmailsSent(db: Q, userId: string, now: Date): Promise<void> {
-  await db
-    .insert(t.usageMonthly)
-    .values({ userId, month: monthKey(now), emailsSent: 1 })
-    .onConflictDoUpdate({
-      target: [t.usageMonthly.userId, t.usageMonthly.month],
-      set: { emailsSent: sql`${t.usageMonthly.emailsSent} + 1` },
-    });
+  const month = monthKey(now);
+  await col(db, 'usage_monthly').updateOne(
+    { _id: usageKey(userId, month) },
+    { $inc: { emailsSent: 1 }, $setOnInsert: { userId, month } },
+    { upsert: true, ...S(db) },
+  );
 }
 
 // ---------- system state ----------
 
 export async function getSystemState(db: Q, key: string): Promise<string | null> {
-  const rows = await db.select().from(t.systemState).where(eq(t.systemState.key, key)).limit(1);
-  return rows[0]?.value ?? null;
+  const doc = await col(db, 'system_state')
+    .findOne({ _id: key }, { projection: { value: 1 }, ...S(db) });
+  return (doc?.value as string | undefined) ?? null;
 }
 
 export async function setSystemState(db: Q, key: string, value: string): Promise<void> {
-  await db
-    .insert(t.systemState)
-    .values({ key, value })
-    .onConflictDoUpdate({ target: t.systemState.key, set: { value } });
+  await col(db, 'system_state')
+    .updateOne({ _id: key }, { $set: { value } }, { upsert: true, ...S(db) });
 }
 
 /** Build the RouteState snapshot for routing an event for (userId, agent). */

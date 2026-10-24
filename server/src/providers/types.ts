@@ -1,4 +1,4 @@
-/** A drizzle database handle or transaction — both support query methods. */
+/** A database handle or transaction — both support query methods. */
 export type DbLike = unknown;
 
 export interface VerifiedToken {
