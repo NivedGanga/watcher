@@ -1,0 +1,15 @@
+{
+  "name": "timeout",
+  "description": "Agent keeps producing output (never stalls) but exceeds the run deadline and is killed by the CLI.",
+  "params": {"stall_after_s": 60, "run_timeout_s": 120},
+  "steps": [
+    {"output": "agent: starting task", "delay_s": 0.5},
+    {"output": "agent: still working", "delay_s": 30.0},
+    {"output": "agent: still working", "delay_s": 30.0},
+    {"output": "agent: still working", "delay_s": 30.0},
+    {"hang": true}
+  ],
+  "expected_events": [
+    {"type": "timed_out", "blocking": true, "email_allowed": true}
+  ]
+}

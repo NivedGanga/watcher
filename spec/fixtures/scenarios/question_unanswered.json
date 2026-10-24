@@ -1,0 +1,14 @@
+{
+  "name": "question_unanswered",
+  "description": "Agent asks a blocking question that is never answered; it waits until the run deadline kills it. No stalled event is emitted while a question is outstanding.",
+  "params": {"stall_after_s": 60, "run_timeout_s": 300},
+  "steps": [
+    {"output": "agent: starting task", "delay_s": 0.5},
+    {"question": "Deploy to production? [y/N]", "answered": false},
+    {"hang": true}
+  ],
+  "expected_events": [
+    {"type": "question", "blocking": true, "email_allowed": true},
+    {"type": "timed_out", "blocking": true, "email_allowed": true}
+  ]
+}

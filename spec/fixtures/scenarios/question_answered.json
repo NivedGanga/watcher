@@ -1,0 +1,15 @@
+{
+  "name": "question_answered",
+  "description": "Agent asks a blocking question; the user answers; the agent finishes.",
+  "params": {"stall_after_s": 60, "run_timeout_s": 300},
+  "steps": [
+    {"output": "agent: starting task", "delay_s": 0.5},
+    {"question": "Deploy to production? [y/N]", "answered": true, "answer_delay_s": 45},
+    {"output": "agent: deploying", "delay_s": 2.0},
+    {"exit": 0}
+  ],
+  "expected_events": [
+    {"type": "question", "blocking": true, "email_allowed": true},
+    {"type": "done", "blocking": false, "email_allowed": true}
+  ]
+}

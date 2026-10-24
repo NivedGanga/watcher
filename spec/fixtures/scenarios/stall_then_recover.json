@@ -1,0 +1,16 @@
+{
+  "name": "stall_then_recover",
+  "description": "Agent goes silent past the stall threshold (emits stalled), resumes output, and exits cleanly.",
+  "params": {"stall_after_s": 60, "run_timeout_s": 300},
+  "steps": [
+    {"output": "agent: starting task", "delay_s": 0.5},
+    {"output": "agent: long computation begins", "delay_s": 1.0},
+    {"sleep_s": 70},
+    {"output": "agent: computation done", "delay_s": 1.0},
+    {"exit": 0}
+  ],
+  "expected_events": [
+    {"type": "stalled", "blocking": false, "email_allowed": true},
+    {"type": "done", "blocking": false, "email_allowed": true}
+  ]
+}

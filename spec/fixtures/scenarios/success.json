@@ -1,0 +1,14 @@
+{
+  "name": "success",
+  "description": "Agent produces output and exits cleanly.",
+  "params": {"stall_after_s": 60, "run_timeout_s": 300},
+  "steps": [
+    {"output": "agent: starting task", "delay_s": 0.5},
+    {"output": "agent: working on step 1", "delay_s": 2.0},
+    {"output": "agent: task complete", "delay_s": 2.0},
+    {"exit": 0}
+  ],
+  "expected_events": [
+    {"type": "done", "blocking": false, "email_allowed": true}
+  ]
+}

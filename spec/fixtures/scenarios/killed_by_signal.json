@@ -1,0 +1,12 @@
+{
+  "name": "killed_by_signal",
+  "description": "Agent is terminated by an external signal (e.g. user runs `kill`); the CLI reports it as failed.",
+  "params": {"stall_after_s": 60, "run_timeout_s": 300},
+  "steps": [
+    {"output": "agent: starting task", "delay_s": 0.5},
+    {"signal": "SIGKILL", "after_s": 30}
+  ],
+  "expected_events": [
+    {"type": "failed", "blocking": true, "email_allowed": true}
+  ]
+}

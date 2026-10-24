@@ -1,0 +1,13 @@
+{
+  "name": "failure",
+  "description": "Agent produces output and exits non-zero.",
+  "params": {"stall_after_s": 60, "run_timeout_s": 300},
+  "steps": [
+    {"output": "agent: starting task", "delay_s": 0.5},
+    {"output": "agent: error: build failed", "delay_s": 3.0},
+    {"exit": 1}
+  ],
+  "expected_events": [
+    {"type": "failed", "blocking": true, "email_allowed": true}
+  ]
+}

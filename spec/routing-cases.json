@@ -1,0 +1,779 @@
+[
+  {
+    "name": "routing_flag_on_app_receipt",
+    "input": {
+      "now": "2026-01-01T10:00:00Z",
+      "account": {"notify_on_phone": true, "phone_alerts_since": "2026-01-01T09:00:00Z", "email_verified": true},
+      "devices": [{"id": "dev1", "revoked_at": null, "last_seen_at": "2026-01-01T09:30:00Z"}],
+      "events": [
+        {"type": "done", "run_id": "r1", "agent": "agent-a", "summary": "Run finished", "timestamp": "2026-01-01T10:00:00Z", "blocking": false, "email_allowed": true, "receipt_within_120s": true}
+      ],
+      "signals": [],
+      "trigger": {"kind": "events"}
+    },
+    "expected": {
+      "pushes": [{"event_type": "done", "urgency": "normal", "deliveries": 1}],
+      "state_pushes": [],
+      "emails": [],
+      "stored": 1,
+      "duplicates": 0
+    },
+    "rule": "Routing"
+  },
+  {
+    "name": "routing_flag_on_app_no_receipt",
+    "input": {
+      "now": "2026-01-01T10:00:00Z",
+      "account": {"notify_on_phone": true, "phone_alerts_since": "2026-01-01T09:00:00Z", "email_verified": true},
+      "devices": [{"id": "dev1", "revoked_at": null, "last_seen_at": "2026-01-01T09:30:00Z"}],
+      "events": [
+        {"type": "done", "run_id": "r1", "agent": "agent-a", "summary": "Run finished", "timestamp": "2026-01-01T10:00:00Z", "blocking": false, "email_allowed": true, "receipt_within_120s": false}
+      ],
+      "signals": [],
+      "trigger": {"kind": "events"}
+    },
+    "expected": {
+      "pushes": [{"event_type": "done", "urgency": "normal", "deliveries": 1}],
+      "state_pushes": [],
+      "emails": [{"kind": "fallback", "delay_s": 120, "sent": true}],
+      "stored": 1,
+      "duplicates": 0
+    },
+    "rule": "Routing"
+  },
+  {
+    "name": "routing_flag_on_no_app",
+    "input": {
+      "now": "2026-01-01T10:00:00Z",
+      "account": {"notify_on_phone": true, "phone_alerts_since": "2026-01-01T09:00:00Z", "email_verified": true},
+      "devices": [],
+      "events": [
+        {"type": "done", "run_id": "r1", "agent": "agent-a", "summary": "Run finished", "timestamp": "2026-01-01T10:00:00Z", "blocking": false, "email_allowed": true, "receipt_within_120s": false}
+      ],
+      "signals": [],
+      "trigger": {"kind": "events"}
+    },
+    "expected": {
+      "pushes": [],
+      "state_pushes": [],
+      "emails": [],
+      "stored": 1,
+      "duplicates": 0
+    },
+    "rule": "Routing"
+  },
+  {
+    "name": "routing_flag_off_app",
+    "input": {
+      "now": "2026-01-01T10:00:00Z",
+      "account": {"notify_on_phone": false, "phone_alerts_since": "2026-01-01T09:00:00Z", "email_verified": true},
+      "devices": [{"id": "dev1", "revoked_at": null, "last_seen_at": "2026-01-01T09:30:00Z"}],
+      "events": [
+        {"type": "done", "run_id": "r1", "agent": "agent-a", "summary": "Run finished", "timestamp": "2026-01-01T10:00:00Z", "blocking": false, "email_allowed": true, "receipt_within_120s": false}
+      ],
+      "signals": [],
+      "trigger": {"kind": "events"}
+    },
+    "expected": {
+      "pushes": [],
+      "state_pushes": [],
+      "emails": [],
+      "stored": 1,
+      "duplicates": 0
+    },
+    "rule": "Routing"
+  },
+  {
+    "name": "routing_flag_off_no_app",
+    "input": {
+      "now": "2026-01-01T10:00:00Z",
+      "account": {"notify_on_phone": false, "phone_alerts_since": "2026-01-01T09:00:00Z", "email_verified": true},
+      "devices": [],
+      "events": [
+        {"type": "done", "run_id": "r1", "agent": "agent-a", "summary": "Run finished", "timestamp": "2026-01-01T10:00:00Z", "blocking": false, "email_allowed": true, "receipt_within_120s": false}
+      ],
+      "signals": [],
+      "trigger": {"kind": "events"}
+    },
+    "expected": {
+      "pushes": [],
+      "state_pushes": [],
+      "emails": [{"kind": "immediate", "delay_s": 0, "sent": true}],
+      "stored": 1,
+      "duplicates": 0
+    },
+    "rule": "Routing"
+  },
+  {
+    "name": "done_email_not_allowed_fallback",
+    "input": {
+      "now": "2026-01-01T10:00:00Z",
+      "account": {"notify_on_phone": true, "phone_alerts_since": "2026-01-01T09:00:00Z", "email_verified": true},
+      "devices": [{"id": "dev1", "revoked_at": null, "last_seen_at": "2026-01-01T09:30:00Z"}],
+      "events": [
+        {"type": "done", "run_id": "r1", "agent": "agent-a", "summary": "Run finished", "timestamp": "2026-01-01T10:00:00Z", "blocking": false, "email_allowed": false, "receipt_within_120s": false}
+      ],
+      "signals": [],
+      "trigger": {"kind": "events"}
+    },
+    "expected": {
+      "pushes": [{"event_type": "done", "urgency": "normal", "deliveries": 1}],
+      "state_pushes": [],
+      "emails": [],
+      "stored": 1,
+      "duplicates": 0
+    },
+    "rule": "Modifiers"
+  },
+  {
+    "name": "done_email_not_allowed_no_app",
+    "input": {
+      "now": "2026-01-01T10:00:00Z",
+      "account": {"notify_on_phone": false, "phone_alerts_since": "2026-01-01T09:00:00Z", "email_verified": true},
+      "devices": [],
+      "events": [
+        {"type": "done", "run_id": "r1", "agent": "agent-a", "summary": "Run finished", "timestamp": "2026-01-01T10:00:00Z", "blocking": false, "email_allowed": false, "receipt_within_120s": false}
+      ],
+      "signals": [],
+      "trigger": {"kind": "events"}
+    },
+    "expected": {
+      "pushes": [],
+      "state_pushes": [],
+      "emails": [],
+      "stored": 1,
+      "duplicates": 0
+    },
+    "rule": "Modifiers"
+  },
+  {
+    "name": "failed_flag_on_app_receipt",
+    "input": {
+      "now": "2026-01-01T10:00:00Z",
+      "account": {"notify_on_phone": true, "phone_alerts_since": "2026-01-01T09:00:00Z", "email_verified": true},
+      "devices": [{"id": "dev1", "revoked_at": null, "last_seen_at": "2026-01-01T09:30:00Z"}],
+      "events": [
+        {"type": "failed", "run_id": "r1", "agent": "agent-a", "summary": "Exited 1", "timestamp": "2026-01-01T10:00:00Z", "blocking": true, "email_allowed": true, "receipt_within_120s": true}
+      ],
+      "signals": [],
+      "trigger": {"kind": "events"}
+    },
+    "expected": {
+      "pushes": [{"event_type": "failed", "urgency": "high", "deliveries": 1}],
+      "state_pushes": [],
+      "emails": [],
+      "stored": 1,
+      "duplicates": 0
+    },
+    "rule": "Modifiers"
+  },
+  {
+    "name": "failed_flag_on_no_app",
+    "input": {
+      "now": "2026-01-01T10:00:00Z",
+      "account": {"notify_on_phone": true, "phone_alerts_since": "2026-01-01T09:00:00Z", "email_verified": true},
+      "devices": [],
+      "events": [
+        {"type": "failed", "run_id": "r1", "agent": "agent-a", "summary": "Exited 1", "timestamp": "2026-01-01T10:00:00Z", "blocking": true, "email_allowed": true, "receipt_within_120s": false}
+      ],
+      "signals": [],
+      "trigger": {"kind": "events"}
+    },
+    "expected": {
+      "pushes": [],
+      "state_pushes": [],
+      "emails": [],
+      "stored": 1,
+      "duplicates": 0
+    },
+    "rule": "Modifiers"
+  },
+  {
+    "name": "failed_flag_off_no_app_email_allowed_false",
+    "input": {
+      "now": "2026-01-01T10:00:00Z",
+      "account": {"notify_on_phone": false, "phone_alerts_since": "2026-01-01T09:00:00Z", "email_verified": true},
+      "devices": [],
+      "events": [
+        {"type": "failed", "run_id": "r1", "agent": "agent-a", "summary": "Exited 1", "timestamp": "2026-01-01T10:00:00Z", "blocking": true, "email_allowed": false, "receipt_within_120s": false}
+      ],
+      "signals": [],
+      "trigger": {"kind": "events"}
+    },
+    "expected": {
+      "pushes": [],
+      "state_pushes": [],
+      "emails": [{"kind": "immediate", "delay_s": 0, "sent": true}],
+      "stored": 1,
+      "duplicates": 0
+    },
+    "rule": "Modifiers"
+  },
+  {
+    "name": "timed_out_flag_off_app",
+    "input": {
+      "now": "2026-01-01T10:00:00Z",
+      "account": {"notify_on_phone": false, "phone_alerts_since": "2026-01-01T09:00:00Z", "email_verified": true},
+      "devices": [{"id": "dev1", "revoked_at": null, "last_seen_at": "2026-01-01T09:30:00Z"}],
+      "events": [
+        {"type": "timed_out", "run_id": "r1", "agent": "agent-a", "summary": "Killed at deadline", "timestamp": "2026-01-01T10:00:00Z", "blocking": true, "email_allowed": true, "receipt_within_120s": false}
+      ],
+      "signals": [],
+      "trigger": {"kind": "events"}
+    },
+    "expected": {
+      "pushes": [],
+      "state_pushes": [],
+      "emails": [],
+      "stored": 1,
+      "duplicates": 0
+    },
+    "rule": "Modifiers"
+  },
+  {
+    "name": "question_receipt_reminder_sent",
+    "input": {
+      "now": "2026-01-01T10:00:00Z",
+      "account": {"notify_on_phone": true, "phone_alerts_since": "2026-01-01T09:00:00Z", "email_verified": true},
+      "devices": [{"id": "dev1", "revoked_at": null, "last_seen_at": "2026-01-01T09:30:00Z"}],
+      "events": [
+        {"type": "question", "run_id": "r1", "agent": "agent-a", "summary": "Apply migration?", "timestamp": "2026-01-01T10:00:00Z", "blocking": true, "email_allowed": true, "receipt_within_120s": true}
+      ],
+      "signals": [],
+      "trigger": {"kind": "events"}
+    },
+    "expected": {
+      "pushes": [{"event_type": "question", "urgency": "high", "deliveries": 1}],
+      "state_pushes": [],
+      "emails": [{"kind": "reminder", "delay_s": 600, "sent": true}],
+      "stored": 1,
+      "duplicates": 0
+    },
+    "rule": "Modifiers"
+  },
+  {
+    "name": "question_receipt_reminder_cancelled",
+    "input": {
+      "now": "2026-01-01T10:00:00Z",
+      "account": {"notify_on_phone": true, "phone_alerts_since": "2026-01-01T09:00:00Z", "email_verified": true},
+      "devices": [{"id": "dev1", "revoked_at": null, "last_seen_at": "2026-01-01T09:30:00Z"}],
+      "events": [
+        {"type": "question", "run_id": "r1", "agent": "agent-a", "summary": "Apply migration?", "timestamp": "2026-01-01T10:00:00Z", "blocking": true, "email_allowed": true, "receipt_within_120s": true}
+      ],
+      "signals": [
+        {"kind": "output_seen", "run_id": "r1", "at": "2026-01-01T10:04:00Z"}
+      ],
+      "trigger": {"kind": "events"}
+    },
+    "expected": {
+      "pushes": [{"event_type": "question", "urgency": "high", "deliveries": 1}],
+      "state_pushes": [],
+      "emails": [{"kind": "reminder", "delay_s": 600, "sent": false}],
+      "stored": 1,
+      "duplicates": 0
+    },
+    "rule": "Modifiers"
+  },
+  {
+    "name": "question_no_receipt_no_reminder",
+    "input": {
+      "now": "2026-01-01T10:00:00Z",
+      "account": {"notify_on_phone": true, "phone_alerts_since": "2026-01-01T09:00:00Z", "email_verified": true},
+      "devices": [{"id": "dev1", "revoked_at": null, "last_seen_at": "2026-01-01T09:30:00Z"}],
+      "events": [
+        {"type": "question", "run_id": "r1", "agent": "agent-a", "summary": "Apply migration?", "timestamp": "2026-01-01T10:00:00Z", "blocking": true, "email_allowed": true, "receipt_within_120s": false}
+      ],
+      "signals": [],
+      "trigger": {"kind": "events"}
+    },
+    "expected": {
+      "pushes": [{"event_type": "question", "urgency": "high", "deliveries": 1}],
+      "state_pushes": [],
+      "emails": [{"kind": "fallback", "delay_s": 120, "sent": true}],
+      "stored": 1,
+      "duplicates": 0
+    },
+    "rule": "Modifiers"
+  },
+  {
+    "name": "stalled_flag_on_app_never_emails",
+    "input": {
+      "now": "2026-01-01T10:00:00Z",
+      "account": {"notify_on_phone": true, "phone_alerts_since": "2026-01-01T09:00:00Z", "email_verified": true},
+      "devices": [{"id": "dev1", "revoked_at": null, "last_seen_at": "2026-01-01T09:30:00Z"}],
+      "events": [
+        {"type": "stalled", "run_id": "r1", "agent": "agent-a", "summary": "No output for 60s", "timestamp": "2026-01-01T10:00:00Z", "blocking": false, "email_allowed": true, "receipt_within_120s": false}
+      ],
+      "signals": [],
+      "trigger": {"kind": "events"}
+    },
+    "expected": {
+      "pushes": [{"event_type": "stalled", "urgency": "normal", "deliveries": 1}],
+      "state_pushes": [],
+      "emails": [],
+      "stored": 1,
+      "duplicates": 0
+    },
+    "rule": "Modifiers"
+  },
+  {
+    "name": "stalled_flag_on_no_app",
+    "input": {
+      "now": "2026-01-01T10:00:00Z",
+      "account": {"notify_on_phone": true, "phone_alerts_since": "2026-01-01T09:00:00Z", "email_verified": true},
+      "devices": [],
+      "events": [
+        {"type": "stalled", "run_id": "r1", "agent": "agent-a", "summary": "No output for 60s", "timestamp": "2026-01-01T10:00:00Z", "blocking": false, "email_allowed": true, "receipt_within_120s": false}
+      ],
+      "signals": [],
+      "trigger": {"kind": "events"}
+    },
+    "expected": {
+      "pushes": [],
+      "state_pushes": [],
+      "emails": [],
+      "stored": 1,
+      "duplicates": 0
+    },
+    "rule": "Modifiers"
+  },
+  {
+    "name": "stalled_flag_off_no_app",
+    "input": {
+      "now": "2026-01-01T10:00:00Z",
+      "account": {"notify_on_phone": false, "phone_alerts_since": "2026-01-01T09:00:00Z", "email_verified": true},
+      "devices": [],
+      "events": [
+        {"type": "stalled", "run_id": "r1", "agent": "agent-a", "summary": "No output for 60s", "timestamp": "2026-01-01T10:00:00Z", "blocking": false, "email_allowed": true, "receipt_within_120s": false}
+      ],
+      "signals": [],
+      "trigger": {"kind": "events"}
+    },
+    "expected": {
+      "pushes": [],
+      "state_pushes": [],
+      "emails": [],
+      "stored": 1,
+      "duplicates": 0
+    },
+    "rule": "Modifiers"
+  },
+  {
+    "name": "host_silent_flag_off_app",
+    "input": {
+      "now": "2026-01-01T10:00:00Z",
+      "account": {"notify_on_phone": false, "phone_alerts_since": "2026-01-01T09:00:00Z", "email_verified": true},
+      "devices": [{"id": "dev1", "revoked_at": null, "last_seen_at": "2026-01-01T09:30:00Z"}],
+      "events": [
+        {"type": "host_silent", "run_id": "none", "agent": "agentwatch", "summary": "workstation has stopped reporting.", "timestamp": "2026-01-01T10:00:00Z", "blocking": true, "email_allowed": true, "receipt_within_120s": false, "host": "workstation"}
+      ],
+      "signals": [],
+      "trigger": {"kind": "events"}
+    },
+    "expected": {
+      "pushes": [{"event_type": "host_silent", "urgency": "high", "deliveries": 1}],
+      "state_pushes": [],
+      "emails": [{"kind": "host_silent", "delay_s": 0, "sent": true}],
+      "stored": 1,
+      "duplicates": 0
+    },
+    "rule": "Modifiers"
+  },
+  {
+    "name": "host_silent_flag_on_no_app",
+    "input": {
+      "now": "2026-01-01T10:00:00Z",
+      "account": {"notify_on_phone": true, "phone_alerts_since": "2026-01-01T09:00:00Z", "email_verified": true},
+      "devices": [],
+      "events": [
+        {"type": "host_silent", "run_id": "none", "agent": "agentwatch", "summary": "workstation has stopped reporting.", "timestamp": "2026-01-01T10:00:00Z", "blocking": true, "email_allowed": true, "receipt_within_120s": false, "host": "workstation"}
+      ],
+      "signals": [],
+      "trigger": {"kind": "events"}
+    },
+    "expected": {
+      "pushes": [],
+      "state_pushes": [],
+      "emails": [{"kind": "host_silent", "delay_s": 0, "sent": true}],
+      "stored": 1,
+      "duplicates": 0
+    },
+    "rule": "Modifiers"
+  },
+  {
+    "name": "host_silent_flag_off_no_app",
+    "input": {
+      "now": "2026-01-01T10:00:00Z",
+      "account": {"notify_on_phone": false, "phone_alerts_since": "2026-01-01T09:00:00Z", "email_verified": true},
+      "devices": [],
+      "events": [
+        {"type": "host_silent", "run_id": "none", "agent": "agentwatch", "summary": "workstation has stopped reporting.", "timestamp": "2026-01-01T10:00:00Z", "blocking": true, "email_allowed": true, "receipt_within_120s": false, "host": "workstation"}
+      ],
+      "signals": [],
+      "trigger": {"kind": "events"}
+    },
+    "expected": {
+      "pushes": [],
+      "state_pushes": [],
+      "emails": [{"kind": "host_silent", "delay_s": 0, "sent": true}],
+      "stored": 1,
+      "duplicates": 0
+    },
+    "rule": "Modifiers"
+  },
+  {
+    "name": "silence_with_active_runs_alerts",
+    "input": {
+      "now": "2026-01-01T10:00:00Z",
+      "account": {"notify_on_phone": true, "phone_alerts_since": "2026-01-01T09:00:00Z", "email_verified": true},
+      "devices": [{"id": "dev1", "revoked_at": null, "last_seen_at": "2026-01-01T09:30:00Z"}],
+      "events": [],
+      "signals": [],
+      "machine": {"id": "m1", "last_heartbeat_at": "2026-01-01T09:44:00Z", "last_active_runs": 2, "already_silent": false},
+      "trigger": {"kind": "silence_check"}
+    },
+    "expected": {
+      "machine_silent": true,
+      "host_silent": {"created": true, "alerted": true},
+      "pushes": [{"event_type": "host_silent", "urgency": "high", "deliveries": 1}],
+      "state_pushes": [],
+      "emails": [{"kind": "host_silent", "delay_s": 0, "sent": true}],
+      "stored": 1,
+      "duplicates": 0
+    },
+    "rule": "Machines"
+  },
+  {
+    "name": "silence_without_active_runs_no_alert",
+    "input": {
+      "now": "2026-01-01T10:00:00Z",
+      "account": {"notify_on_phone": true, "phone_alerts_since": "2026-01-01T09:00:00Z", "email_verified": true},
+      "devices": [{"id": "dev1", "revoked_at": null, "last_seen_at": "2026-01-01T09:30:00Z"}],
+      "events": [],
+      "signals": [],
+      "machine": {"id": "m1", "last_heartbeat_at": "2026-01-01T09:44:00Z", "last_active_runs": 0, "already_silent": false},
+      "trigger": {"kind": "silence_check"}
+    },
+    "expected": {
+      "machine_silent": true,
+      "host_silent": {"created": false, "alerted": false},
+      "pushes": [],
+      "state_pushes": [],
+      "emails": [],
+      "stored": 0,
+      "duplicates": 0
+    },
+    "rule": "Machines"
+  },
+  {
+    "name": "grouping_sixth_event",
+    "input": {
+      "now": "2026-01-01T10:00:50Z",
+      "account": {"notify_on_phone": true, "phone_alerts_since": "2026-01-01T09:00:00Z", "email_verified": true},
+      "devices": [{"id": "dev1", "revoked_at": null, "last_seen_at": "2026-01-01T09:30:00Z"}],
+      "events": [
+        {"type": "done", "run_id": "r1", "agent": "agent-a", "summary": "Step 1 done", "timestamp": "2026-01-01T10:00:00Z", "blocking": false, "email_allowed": true, "receipt_within_120s": true},
+        {"type": "done", "run_id": "r2", "agent": "agent-a", "summary": "Step 2 done", "timestamp": "2026-01-01T10:00:10Z", "blocking": false, "email_allowed": true, "receipt_within_120s": true},
+        {"type": "question", "run_id": "r3", "agent": "agent-a", "summary": "Continue?", "timestamp": "2026-01-01T10:00:20Z", "blocking": true, "email_allowed": true, "receipt_within_120s": true},
+        {"type": "done", "run_id": "r4", "agent": "agent-a", "summary": "Step 4 done", "timestamp": "2026-01-01T10:00:30Z", "blocking": false, "email_allowed": true, "receipt_within_120s": true},
+        {"type": "stalled", "run_id": "r5", "agent": "agent-a", "summary": "No output for 60s", "timestamp": "2026-01-01T10:00:40Z", "blocking": false, "email_allowed": true, "receipt_within_120s": true},
+        {"type": "done", "run_id": "r6", "agent": "agent-a", "summary": "Step 6 done", "timestamp": "2026-01-01T10:00:50Z", "blocking": false, "email_allowed": true, "receipt_within_120s": true}
+      ],
+      "signals": [],
+      "trigger": {"kind": "events"}
+    },
+    "expected": {
+      "pushes": [
+        {"event_type": "done", "urgency": "normal", "deliveries": 1},
+        {"event_type": "done", "urgency": "normal", "deliveries": 1},
+        {"event_type": "question", "urgency": "high", "deliveries": 1},
+        {"event_type": "done", "urgency": "normal", "deliveries": 1},
+        {"event_type": "stalled", "urgency": "normal", "deliveries": 1},
+        {"event_type": "grouped", "urgency": "normal", "deliveries": 1, "summary_pattern": "6 events from agent-a in the last minute"}
+      ],
+      "state_pushes": [],
+      "emails": [],
+      "stored": 6,
+      "duplicates": 0
+    },
+    "rule": "Grouping"
+  },
+  {
+    "name": "grouping_closing_total",
+    "input": {
+      "now": "2026-01-01T10:01:00Z",
+      "account": {"notify_on_phone": true, "phone_alerts_since": "2026-01-01T09:00:00Z", "email_verified": true},
+      "devices": [{"id": "dev1", "revoked_at": null, "last_seen_at": "2026-01-01T09:30:00Z"}],
+      "events": [
+        {"type": "done", "run_id": "r1", "agent": "agent-a", "summary": "Step 1 done", "timestamp": "2026-01-01T10:00:00Z", "blocking": false, "email_allowed": true, "receipt_within_120s": true},
+        {"type": "done", "run_id": "r2", "agent": "agent-a", "summary": "Step 2 done", "timestamp": "2026-01-01T10:00:08Z", "blocking": false, "email_allowed": true, "receipt_within_120s": true},
+        {"type": "done", "run_id": "r3", "agent": "agent-a", "summary": "Step 3 done", "timestamp": "2026-01-01T10:00:16Z", "blocking": false, "email_allowed": true, "receipt_within_120s": true},
+        {"type": "done", "run_id": "r4", "agent": "agent-a", "summary": "Step 4 done", "timestamp": "2026-01-01T10:00:24Z", "blocking": false, "email_allowed": true, "receipt_within_120s": true},
+        {"type": "done", "run_id": "r5", "agent": "agent-a", "summary": "Step 5 done", "timestamp": "2026-01-01T10:00:32Z", "blocking": false, "email_allowed": true, "receipt_within_120s": true},
+        {"type": "done", "run_id": "r6", "agent": "agent-a", "summary": "Step 6 done", "timestamp": "2026-01-01T10:00:40Z", "blocking": false, "email_allowed": true, "receipt_within_120s": true},
+        {"type": "done", "run_id": "r7", "agent": "agent-a", "summary": "Step 7 done", "timestamp": "2026-01-01T10:00:48Z", "blocking": false, "email_allowed": true, "receipt_within_120s": true}
+      ],
+      "signals": [],
+      "trigger": {"kind": "events", "advance_to": "2026-01-01T10:01:01Z"}
+    },
+    "expected": {
+      "pushes": [
+        {"event_type": "done", "urgency": "normal", "deliveries": 1},
+        {"event_type": "done", "urgency": "normal", "deliveries": 1},
+        {"event_type": "done", "urgency": "normal", "deliveries": 1},
+        {"event_type": "done", "urgency": "normal", "deliveries": 1},
+        {"event_type": "done", "urgency": "normal", "deliveries": 1},
+        {"event_type": "grouped", "urgency": "normal", "deliveries": 1, "summary_pattern": "6 events from agent-a in the last minute"},
+        {"event_type": "group_closed", "urgency": "normal", "deliveries": 1, "summary_pattern": "7 events from agent-a in the last minute; 1 not shown individually"}
+      ],
+      "state_pushes": [],
+      "emails": [],
+      "stored": 7,
+      "duplicates": 0
+    },
+    "rule": "Grouping"
+  },
+  {
+    "name": "failed_not_counted_for_grouping",
+    "input": {
+      "now": "2026-01-01T10:00:50Z",
+      "account": {"notify_on_phone": true, "phone_alerts_since": "2026-01-01T09:00:00Z", "email_verified": true},
+      "devices": [{"id": "dev1", "revoked_at": null, "last_seen_at": "2026-01-01T09:30:00Z"}],
+      "events": [
+        {"type": "done", "run_id": "r1", "agent": "agent-a", "summary": "Step 1 done", "timestamp": "2026-01-01T10:00:00Z", "blocking": false, "email_allowed": true, "receipt_within_120s": true},
+        {"type": "done", "run_id": "r2", "agent": "agent-a", "summary": "Step 2 done", "timestamp": "2026-01-01T10:00:10Z", "blocking": false, "email_allowed": true, "receipt_within_120s": true},
+        {"type": "done", "run_id": "r3", "agent": "agent-a", "summary": "Step 3 done", "timestamp": "2026-01-01T10:00:20Z", "blocking": false, "email_allowed": true, "receipt_within_120s": true},
+        {"type": "done", "run_id": "r4", "agent": "agent-a", "summary": "Step 4 done", "timestamp": "2026-01-01T10:00:30Z", "blocking": false, "email_allowed": true, "receipt_within_120s": true},
+        {"type": "done", "run_id": "r5", "agent": "agent-a", "summary": "Step 5 done", "timestamp": "2026-01-01T10:00:40Z", "blocking": false, "email_allowed": true, "receipt_within_120s": true},
+        {"type": "failed", "run_id": "r6", "agent": "agent-a", "summary": "Exited 1", "timestamp": "2026-01-01T10:00:50Z", "blocking": true, "email_allowed": true, "receipt_within_120s": true}
+      ],
+      "signals": [],
+      "trigger": {"kind": "events"}
+    },
+    "expected": {
+      "pushes": [
+        {"event_type": "done", "urgency": "normal", "deliveries": 1},
+        {"event_type": "done", "urgency": "normal", "deliveries": 1},
+        {"event_type": "done", "urgency": "normal", "deliveries": 1},
+        {"event_type": "done", "urgency": "normal", "deliveries": 1},
+        {"event_type": "done", "urgency": "normal", "deliveries": 1},
+        {"event_type": "failed", "urgency": "high", "deliveries": 1}
+      ],
+      "state_pushes": [],
+      "emails": [],
+      "stored": 6,
+      "duplicates": 0
+    },
+    "rule": "Grouping"
+  },
+  {
+    "name": "dedupe_same_tuple_within_10_minutes",
+    "input": {
+      "now": "2026-01-01T10:05:00Z",
+      "account": {"notify_on_phone": true, "phone_alerts_since": "2026-01-01T09:00:00Z", "email_verified": true},
+      "devices": [{"id": "dev1", "revoked_at": null, "last_seen_at": "2026-01-01T09:30:00Z"}],
+      "events": [
+        {"type": "done", "run_id": "r1", "agent": "agent-a", "summary": "Build succeeded", "timestamp": "2026-01-01T10:00:00Z", "blocking": false, "email_allowed": true, "receipt_within_120s": true},
+        {"type": "done", "run_id": "r1", "agent": "agent-a", "summary": "Build succeeded", "timestamp": "2026-01-01T10:05:00Z", "blocking": false, "email_allowed": true, "receipt_within_120s": true}
+      ],
+      "signals": [],
+      "trigger": {"kind": "events"}
+    },
+    "expected": {
+      "pushes": [{"event_type": "done", "urgency": "normal", "deliveries": 1}],
+      "state_pushes": [],
+      "emails": [],
+      "stored": 1,
+      "duplicates": 1
+    },
+    "rule": "Deduplication"
+  },
+  {
+    "name": "dedupe_same_tuple_after_10_minutes",
+    "input": {
+      "now": "2026-01-01T10:11:00Z",
+      "account": {"notify_on_phone": true, "phone_alerts_since": "2026-01-01T09:00:00Z", "email_verified": true},
+      "devices": [{"id": "dev1", "revoked_at": null, "last_seen_at": "2026-01-01T09:30:00Z"}],
+      "events": [
+        {"type": "done", "run_id": "r1", "agent": "agent-a", "summary": "Build succeeded", "timestamp": "2026-01-01T10:00:00Z", "blocking": false, "email_allowed": true, "receipt_within_120s": true},
+        {"type": "done", "run_id": "r1", "agent": "agent-a", "summary": "Build succeeded", "timestamp": "2026-01-01T10:11:00Z", "blocking": false, "email_allowed": true, "receipt_within_120s": true}
+      ],
+      "signals": [],
+      "trigger": {"kind": "events"}
+    },
+    "expected": {
+      "pushes": [
+        {"event_type": "done", "urgency": "normal", "deliveries": 1},
+        {"event_type": "done", "urgency": "normal", "deliveries": 1}
+      ],
+      "state_pushes": [],
+      "emails": [],
+      "stored": 2,
+      "duplicates": 0
+    },
+    "rule": "Deduplication"
+  },
+  {
+    "name": "auto_off_below_idle_threshold",
+    "input": {
+      "now": "2026-01-01T10:00:00Z",
+      "account": {"notify_on_phone": true, "phone_alerts_since": "2026-01-01T09:00:00Z", "email_verified": true},
+      "devices": [{"id": "dev1", "revoked_at": null, "last_seen_at": "2026-01-01T09:30:00Z"}],
+      "events": [],
+      "signals": [
+        {"kind": "input_resumed", "run_id": null, "at": "2026-01-01T10:00:00Z", "idle_seconds": 299}
+      ],
+      "trigger": {"kind": "signal"}
+    },
+    "expected": {
+      "notify_on_phone": true,
+      "pushes": [],
+      "state_pushes": [],
+      "emails": []
+    },
+    "rule": "Away flag and auto-off"
+  },
+  {
+    "name": "auto_off_at_idle_threshold",
+    "input": {
+      "now": "2026-01-01T10:00:00Z",
+      "account": {"notify_on_phone": true, "phone_alerts_since": "2026-01-01T09:00:00Z", "email_verified": true},
+      "devices": [{"id": "dev1", "revoked_at": null, "last_seen_at": "2026-01-01T09:30:00Z"}],
+      "events": [],
+      "signals": [
+        {"kind": "input_resumed", "run_id": null, "at": "2026-01-01T10:00:00Z", "idle_seconds": 300}
+      ],
+      "trigger": {"kind": "signal"}
+    },
+    "expected": {
+      "notify_on_phone": false,
+      "pushes": [],
+      "state_pushes": [{"on": "false", "deliveries": 1}],
+      "emails": []
+    },
+    "rule": "Away flag and auto-off"
+  },
+  {
+    "name": "auto_off_signal_before_flag_enabled",
+    "input": {
+      "now": "2026-01-01T10:00:00Z",
+      "account": {"notify_on_phone": true, "phone_alerts_since": "2026-01-01T09:00:00Z", "email_verified": true},
+      "devices": [{"id": "dev1", "revoked_at": null, "last_seen_at": "2026-01-01T09:30:00Z"}],
+      "events": [],
+      "signals": [
+        {"kind": "input_resumed", "run_id": null, "at": "2026-01-01T08:59:00Z", "idle_seconds": 600}
+      ],
+      "trigger": {"kind": "signal"}
+    },
+    "expected": {
+      "notify_on_phone": true,
+      "pushes": [],
+      "state_pushes": [],
+      "emails": []
+    },
+    "rule": "Away flag and auto-off"
+  },
+  {
+    "name": "hard_cap_turns_flag_off",
+    "input": {
+      "now": "2026-01-01T10:00:01Z",
+      "account": {"notify_on_phone": true, "phone_alerts_since": "2026-01-01T02:00:00Z", "email_verified": true},
+      "devices": [{"id": "dev1", "revoked_at": null, "last_seen_at": "2026-01-01T09:30:00Z"}],
+      "events": [],
+      "signals": [],
+      "trigger": {"kind": "tick"}
+    },
+    "expected": {
+      "notify_on_phone": false,
+      "pushes": [],
+      "state_pushes": [{"on": "false", "deliveries": 1}],
+      "emails": []
+    },
+    "rule": "Hard cap"
+  },
+  {
+    "name": "device_active_counts_as_app",
+    "input": {
+      "now": "2026-01-01T10:00:00Z",
+      "account": {"notify_on_phone": true, "phone_alerts_since": "2026-01-01T09:00:00Z", "email_verified": true},
+      "devices": [{"id": "dev1", "revoked_at": null, "last_seen_at": "2025-12-31T10:00:00Z"}],
+      "events": [
+        {"type": "done", "run_id": "r1", "agent": "agent-a", "summary": "Run finished", "timestamp": "2026-01-01T10:00:00Z", "blocking": false, "email_allowed": true, "receipt_within_120s": true}
+      ],
+      "signals": [],
+      "trigger": {"kind": "events"}
+    },
+    "expected": {
+      "device_active": true,
+      "pushes": [{"event_type": "done", "urgency": "normal", "deliveries": 1}],
+      "state_pushes": [],
+      "emails": [],
+      "stored": 1,
+      "duplicates": 0
+    },
+    "rule": "Devices and presence"
+  },
+  {
+    "name": "device_revoked_not_active",
+    "input": {
+      "now": "2026-01-01T10:00:00Z",
+      "account": {"notify_on_phone": true, "phone_alerts_since": "2026-01-01T09:00:00Z", "email_verified": true},
+      "devices": [{"id": "dev1", "revoked_at": "2026-01-01T09:00:00Z", "last_seen_at": "2026-01-01T09:30:00Z"}],
+      "events": [
+        {"type": "done", "run_id": "r1", "agent": "agent-a", "summary": "Run finished", "timestamp": "2026-01-01T10:00:00Z", "blocking": false, "email_allowed": true, "receipt_within_120s": true}
+      ],
+      "signals": [],
+      "trigger": {"kind": "events"}
+    },
+    "expected": {
+      "device_active": false,
+      "pushes": [],
+      "state_pushes": [],
+      "emails": [],
+      "stored": 1,
+      "duplicates": 0
+    },
+    "rule": "Devices and presence"
+  },
+  {
+    "name": "device_stale_at_14_days",
+    "input": {
+      "now": "2026-01-01T10:00:00Z",
+      "account": {"notify_on_phone": true, "phone_alerts_since": "2026-01-01T09:00:00Z", "email_verified": true},
+      "devices": [{"id": "dev1", "revoked_at": null, "last_seen_at": "2025-12-18T10:00:00Z"}],
+      "events": [
+        {"type": "done", "run_id": "r1", "agent": "agent-a", "summary": "Run finished", "timestamp": "2026-01-01T10:00:00Z", "blocking": false, "email_allowed": true, "receipt_within_120s": true}
+      ],
+      "signals": [],
+      "trigger": {"kind": "events"}
+    },
+    "expected": {
+      "device_active": false,
+      "pushes": [],
+      "state_pushes": [],
+      "emails": [],
+      "stored": 1,
+      "duplicates": 0
+    },
+    "rule": "Devices and presence"
+  },
+  {
+    "name": "unverified_email_account_action",
+    "input": {
+      "now": "2026-01-01T10:00:00Z",
+      "account": {"notify_on_phone": false, "phone_alerts_since": null, "email_verified": false},
+      "devices": [],
+      "events": [],
+      "signals": [],
+      "trigger": {"kind": "http", "method": "PUT", "path": "/api/me/notifications", "body": {"enabled": true}}
+    },
+    "expected": {
+      "error": {"status": 403, "code": "email_not_verified"},
+      "notify_on_phone": false,
+      "pushes": [],
+      "state_pushes": [],
+      "emails": []
+    },
+    "rule": "Authentication"
+  }
+]

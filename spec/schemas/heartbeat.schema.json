@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AgentWatch Heartbeat",
+  "description": "Sent by the CLI in POST /api/heartbeat.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["sent_at", "active_runs"],
+  "properties": {
+    "sent_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+    },
+    "active_runs": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}

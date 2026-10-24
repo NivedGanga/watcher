@@ -1,0 +1,25 @@
+# Environment
+.env*
+!.env.example
+
+# Local secrets and config
+machine.key
+config.toml
+*service-account*.json
+*serviceaccount*.json
+serviceAccountKey.json
+*-firebase-adminsdk-*.json
+google-services.json
+GoogleService-Info.plist
+
+# Databases
+*.sqlite*
+*.db
+
+# Dependencies and build output
+node_modules/
+.venv/
+build/
+dist/
+.vercel/
+__pycache__/

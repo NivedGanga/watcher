@@ -1,0 +1,44 @@
+[
+  {
+    "name": "anthropic_key",
+    "pattern": "sk-ant-[A-Za-z0-9_-]{16,}",
+    "flags": "",
+    "replacement": "[REDACTED]"
+  },
+  {
+    "name": "generic_sk_key",
+    "pattern": "sk-[A-Za-z0-9_-]{16,}",
+    "flags": "",
+    "replacement": "[REDACTED]"
+  },
+  {
+    "name": "github_token",
+    "pattern": "(ghp_|gho_|github_pat_)[A-Za-z0-9_]{16,}",
+    "flags": "",
+    "replacement": "[REDACTED]"
+  },
+  {
+    "name": "aws_access_key",
+    "pattern": "AKIA[0-9A-Z]{16}",
+    "flags": "",
+    "replacement": "[REDACTED]"
+  },
+  {
+    "name": "bearer_token",
+    "pattern": "Bearer\\s+[A-Za-z0-9._~+/=-]{8,}",
+    "flags": "i",
+    "replacement": "[REDACTED]"
+  },
+  {
+    "name": "jwt",
+    "pattern": "eyJ[A-Za-z0-9_-]{5,}\\.[A-Za-z0-9_-]{5,}\\.[A-Za-z0-9_-]{5,}",
+    "flags": "",
+    "replacement": "[REDACTED]"
+  },
+  {
+    "name": "assignment",
+    "pattern": "(password|passwd|token|secret|api_key|apikey)\\s*[:=]\\s*\\S+",
+    "flags": "i",
+    "replacement": "[REDACTED]"
+  }
+]
