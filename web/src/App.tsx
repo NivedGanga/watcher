@@ -28,6 +28,7 @@ export default function App() {
             <Routes>
               <Route path="/" element={<Root />} />
               <Route path="/device" element={<ApprovalPage />} />
+              <Route path="/connect" element={<ApprovalPage />} />
               <Route path="/privacy" element={<PlaceholderPage title="Privacy" />} />
               <Route path="/terms" element={<PlaceholderPage title="Terms" />} />
             </Routes>
