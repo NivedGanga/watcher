@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentwatch"
-version = "0.1.2"
+version = "0.1.3"
 description = "Wrap agent processes, queue events locally, and report them to the AgentWatch server."
 readme = "README.md"
 requires-python = ">=3.11"
