@@ -73,7 +73,7 @@ export function NotificationsSection() {
         <div>
           <h2>Phone alerts</h2>
           <p className="status" data-testid="alert-status">
-            {loadError ? 'Alerts status unavailable' : statusLine(state)}
+            {loadError ? 'Alerts status unavailable' : state ? statusLine(state) : 'Loading…'}
           </p>
         </div>
         <div className="switch-wrap">

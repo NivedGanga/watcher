@@ -15,12 +15,15 @@ const MAX_RECENT = 20;
 
 export interface AlertsState {
   alerts: AlertItem[];
+  /** True once the initial server fetch has settled (success or failure). */
+  loaded: boolean;
   add(alert: AlertItem): void;
   seed(items: AlertItem[]): void;
 }
 
 const AlertsContext = createContext<AlertsState>({
   alerts: [],
+  loaded: false,
   add: () => undefined,
   seed: () => undefined,
 });
@@ -45,6 +48,7 @@ export function toAlertItem(d: AlertData): AlertItem {
 // load and fed live by foreground messages and notification clicks.
 export function AlertsProvider({ children }: { children: ReactNode }) {
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const add = useCallback((d: AlertItem) => {
     setAlerts((prev) => {
       const rest = prev.filter((a) => a.event_id !== d.event_id);
@@ -52,6 +56,7 @@ export function AlertsProvider({ children }: { children: ReactNode }) {
     });
   }, []);
   const seed = useCallback((items: AlertItem[]) => {
+    setLoaded(true);
     setAlerts((prev) => {
       const seen = new Set<string>();
       return [...items, ...prev]
@@ -60,6 +65,8 @@ export function AlertsProvider({ children }: { children: ReactNode }) {
     });
   }, []);
   return (
-    <AlertsContext.Provider value={{ alerts, add, seed }}>{children}</AlertsContext.Provider>
+    <AlertsContext.Provider value={{ alerts, loaded, add, seed }}>
+      {children}
+    </AlertsContext.Provider>
   );
 }

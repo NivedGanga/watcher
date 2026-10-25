@@ -7,12 +7,14 @@ function timeOf(ts: string): string {
 }
 
 export function RecentAlerts() {
-  const { alerts } = useAlerts();
+  const { alerts, loaded } = useAlerts();
   return (
-    <section className="card" aria-label="Recent alerts">
+    <section className="card" aria-label="Recent alerts" aria-busy={!loaded}>
       <h2>Recent alerts</h2>
-      {alerts.length === 0 ? (
-        <p className="muted">No alerts yet this session.</p>
+      {!loaded ? (
+        <p className="muted">Loading…</p>
+      ) : alerts.length === 0 ? (
+        <p className="muted">No recent alerts.</p>
       ) : (
         <ul className="alerts">
           {alerts.map((a) => (

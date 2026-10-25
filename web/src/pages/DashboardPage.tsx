@@ -23,7 +23,10 @@ export function DashboardPage() {
   const openedAlert = params.get('alert');
 
   useEffect(() => {
-    api.recentEvents(20).then((r) => seed(r.events)).catch(() => undefined);
+    api
+      .recentEvents(20)
+      .then((r) => seed(r.events))
+      .catch(() => seed([]));
   }, [api, seed]);
 
   useEffect(() => {
