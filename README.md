@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="web/public/icons/icon-192.png" width="96" alt="AgentWatch logo">
+</p>
+
 # AgentWatch
 
 [![npm](https://img.shields.io/npm/v/agentwatch-tool)](https://www.npmjs.com/package/agentwatch-tool)

@@ -21,7 +21,10 @@ export function SignIn() {
   return (
     <main className="center">
       <section className="card signin">
-        <h1>AgentWatch</h1>
+        <h1 className="brand">
+          <img src="/icons/logo.svg" alt="" />
+          AgentWatch
+        </h1>
         <p>Alerts from your autonomous agents, on your phone.</p>
         <button onClick={onSignIn} disabled={busy}>
           {busy ? 'Signing in…' : 'Sign in with Google'}

@@ -59,6 +59,18 @@ h1 {
   margin: 0;
 }
 
+h1.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+h1.brand img {
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 0.45rem;
+}
+
 h2 {
   font-size: 1.05rem;
   margin: 0 0 0.5rem;

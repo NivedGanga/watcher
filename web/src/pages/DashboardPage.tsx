@@ -64,7 +64,10 @@ export function DashboardPage() {
   return (
     <main className="page">
       <header className="row">
-        <h1>AgentWatch</h1>
+        <h1 className="brand">
+          <img src="/icons/logo.svg" alt="" />
+          AgentWatch
+        </h1>
         <InstallButton />
       </header>
       {openedAlert && (

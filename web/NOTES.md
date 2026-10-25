@@ -108,8 +108,9 @@ Last updated: 2026-10-25.
 - **`?alert=<event_id>`** opened by a notification click with no live window
   shows a notice, not alert details — the recent-alerts list is session
   memory only, per spec.
-- **Icons are generated placeholders** (`scripts/generate-icons.mjs`, solid
-  brand color). Replace before launch.
+- **Icons are rasterized from the logo mark** (`public/icons/logo.svg` is the
+  source of truth; `scripts/generate-icons.mjs` re-renders the PNGs via SDFs,
+  zero deps — `npm run icons`).
 - **No Playwright smoke test** (optional per brief); coverage is Vitest + RTL.
 
 ## Env/build

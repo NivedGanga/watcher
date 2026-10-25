@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="AgentWatch logo">
+  <!-- Brand: bg #1a2332, ink #e8edf5, accent #4fa3ff -->
+  <rect width="512" height="512" rx="112" fill="#1a2332"/>
+  <g fill="none" stroke-linecap="round">
+    <!-- eye: lens formed by two arcs -->
+    <path d="M 126.4 256 A 170 170 0 0 1 385.6 256 A 170 170 0 0 1 126.4 256 Z"
+          stroke="#e8edf5" stroke-width="22"/>
+    <!-- iris ring -->
+    <circle cx="256" cy="256" r="58" stroke="#4fa3ff" stroke-width="18"/>
+    <!-- pupil -->
+    <circle cx="256" cy="256" r="26" fill="#4fa3ff" stroke="none"/>
+    <!-- broadcast arcs radiating from the pupil -->
+    <path d="M 275.1 147.7 A 110 110 0 0 1 359.4 218.4"
+          stroke="#4fa3ff" stroke-width="16"/>
+    <path d="M 281.2 113.2 A 145 145 0 0 1 392.3 206.4"
+          stroke="#4fa3ff" stroke-width="16" opacity="0.65"/>
+  </g>
+</svg>
