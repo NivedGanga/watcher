@@ -1,5 +1,7 @@
 # AgentWatch
 
+[![npm](https://img.shields.io/npm/v/agentwatch-tool)](https://www.npmjs.com/package/agentwatch-tool)
+
 AgentWatch is a public, hosted alerting service for autonomous agents. Users
 install the `agentwatch` CLI on their computers, sign in through a browser,
 and receive alerts as web push notifications (phone or browser PWA) or by
@@ -10,6 +12,11 @@ This repository is organized so that **every module is built from the files
 in `spec/` alone**.
 
 ## Quick start (npm)
+
+The CLI is published as [`agentwatch-tool`](https://www.npmjs.com/package/agentwatch-tool)
+(prebuilt binaries per platform, e.g. `agentwatch-tool-darwin-arm64` — no
+Python required). The hosted app lives at
+https://agentwatch-web-ten.vercel.app.
 
 ```sh
 npm i -g agentwatch-tool      # installs the `agentwatch` command
