@@ -88,6 +88,15 @@ def test_ask_done_no_network_without_login(env):
     assert types == ["question", "done"]
 
 
+def test_ask_defaults_agent_to_host_name(env, config):
+    """Unwrapped signals report the machine name (agent == host)."""
+    rc, _, _ = run_cli_blocking(["ask", "q?"], env)
+    assert rc == 0
+    (e,) = outbox_events(env)
+    assert e["agent"] == config.host_name
+    assert e["agent"] == e["host"]
+
+
 def test_ask_inside_run_uses_env_identity(env):
     rc, _, _ = run_cli_blocking(
         ["ask", "continue?"],
