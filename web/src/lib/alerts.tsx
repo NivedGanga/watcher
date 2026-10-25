@@ -11,7 +11,7 @@ export interface AlertItem {
   timestamp: string;
 }
 
-const MAX_RECENT = 20;
+const MAX_RECENT = 50;
 
 export interface AlertsState {
   alerts: AlertItem[];

@@ -92,7 +92,12 @@ meRoutes.get('/api/me/events', firebaseAuth, requireVerified, async (c) => {
   if (p.kind !== 'user') return unauthorized(c);
   const raw = Number(c.req.query('limit') ?? 20);
   const limit = Number.isFinite(raw) ? Math.min(Math.max(Math.trunc(raw), 1), 50) : 20;
-  const rows = await repo.listRecentEvents(getDb(c), p.userId, limit);
+  const hoursRaw = Number(c.req.query('hours') ?? 0);
+  const since =
+    Number.isFinite(hoursRaw) && hoursRaw > 0
+      ? new Date(Date.now() - Math.min(hoursRaw, 24 * 30) * 3_600_000)
+      : undefined;
+  const rows = await repo.listRecentEvents(getDb(c), p.userId, limit, since);
   return c.json({
     events: rows.map((e) => ({
       event_id: e.id,

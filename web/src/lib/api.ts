@@ -134,7 +134,7 @@ export interface RecentEvent {
 export interface UserApi {
   me(): Promise<MeResponse>;
   setNotifications(enabled: boolean): Promise<NotificationsResponse>;
-  recentEvents(limit?: number): Promise<{ events: RecentEvent[] }>;
+  recentEvents(limit?: number, hours?: number): Promise<{ events: RecentEvent[] }>;
   deleteMe(): Promise<void>;
   machines(): Promise<Machine[]>;
   deleteMachine(id: string): Promise<void>;
@@ -154,7 +154,8 @@ export function createUserApi(baseUrl: string, getToken: () => Promise<string>):
   return {
     me: () => call('/api/me', 'GET'),
     setNotifications: (enabled) => call('/api/me/notifications', 'PUT', { enabled }),
-    recentEvents: (limit = 20) => call(`/api/me/events?limit=${limit}`, 'GET'),
+    recentEvents: (limit = 20, hours?: number) =>
+      call(`/api/me/events?limit=${limit}${hours ? `&hours=${hours}` : ''}`, 'GET'),
     deleteMe: () => call('/api/me', 'DELETE'),
     machines: () => call('/api/me/machines', 'GET'),
     deleteMachine: (id) => call(`/api/me/machines/${encodeURIComponent(id)}`, 'DELETE'),

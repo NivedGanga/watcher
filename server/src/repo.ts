@@ -517,9 +517,12 @@ export async function listRecentEvents(
   db: Q,
   userId: string,
   limit: number,
+  since?: Date,
 ): Promise<EventRow[]> {
+  const filter: Record<string, unknown> = { userId };
+  if (since) filter.receivedAt = { $gte: since };
   const docs = await col(db, 'events')
-    .find({ userId }, { sort: { receivedAt: -1 }, limit, ...S(db) })
+    .find(filter, { sort: { receivedAt: -1 }, limit, ...S(db) })
     .toArray();
   return docs.map((d) => unpack<EventRow>(d)!);
 }

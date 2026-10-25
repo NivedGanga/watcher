@@ -24,7 +24,7 @@ export function DashboardPage() {
 
   useEffect(() => {
     api
-      .recentEvents(20)
+      .recentEvents(50, 10)
       .then((r) => seed(r.events))
       .catch(() => seed([]));
   }, [api, seed]);

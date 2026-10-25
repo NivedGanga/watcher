@@ -234,3 +234,15 @@ footer {
   text-align: center;
   margin-top: 1.5rem;
 }
+
+button.link {
+  background: none;
+  border: none;
+  padding: 0.25rem 0;
+  color: #7aa2f7;
+  text-decoration: underline;
+}
+
+button.link:hover {
+  color: #9ab8ff;
+}
