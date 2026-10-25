@@ -66,7 +66,7 @@ export function DashboardPage() {
       <header className="row">
         <h1 className="brand">
           <img src="/icons/logo.svg" alt="" />
-          AgentWatch
+          Tocsin
         </h1>
         <InstallButton />
       </header>

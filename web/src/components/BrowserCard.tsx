@@ -50,7 +50,7 @@ export function BrowserCard() {
   } else if (support === 'ios-standalone-required') {
     body = (
       <p>
-        On iPhone and iPad, push alerts require the app to be installed: open AgentWatch in Safari,
+        On iPhone and iPad, push alerts require the app to be installed: open Tocsin in Safari,
         tap Share, then <strong>Add to Home Screen</strong>, and open it from the home screen.
       </p>
     );

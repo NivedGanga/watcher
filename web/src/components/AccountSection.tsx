@@ -59,7 +59,7 @@ export function AccountSection() {
   const onDelete = async () => {
     if (
       !window.confirm(
-        'Delete your AgentWatch account? All machines, devices, and events are removed immediately. This cannot be undone.',
+        'Delete your Tocsin account? All machines, devices, and events are removed immediately. This cannot be undone.',
       )
     )
       return;

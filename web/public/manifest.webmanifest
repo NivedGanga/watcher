@@ -1,6 +1,6 @@
 {
-  "name": "AgentWatch",
-  "short_name": "AgentWatch",
+  "name": "Tocsin",
+  "short_name": "Tocsin",
   "description": "Alerts from your autonomous agents, on your phone.",
   "start_url": "/",
   "scope": "/",
