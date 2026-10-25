@@ -5,7 +5,7 @@
 Please report suspected vulnerabilities privately. Do **not** open a public
 issue.
 
-- **Contact:** security@agentwatch.example (placeholder — replace before launch)
+- **Contact:** nivedganga@gmail.com
 - Include: affected component (`cli`, `server`, `integrations`, `spec`), a
   description, steps to reproduce, and impact.
 - You will receive an acknowledgement within 72 hours and a status update at

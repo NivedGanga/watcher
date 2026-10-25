@@ -28,3 +28,4 @@ npm/platforms/*/bin/agentwatch
 cli/dist/
 cli/build/
 *.spec
+.DS_Store
