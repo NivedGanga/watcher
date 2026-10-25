@@ -87,6 +87,25 @@ meRoutes.get('/api/me/machines', firebaseAuth, requireVerified, async (c) => {
   );
 });
 
+meRoutes.get('/api/me/events', firebaseAuth, requireVerified, async (c) => {
+  const p = getPrincipal(c);
+  if (p.kind !== 'user') return unauthorized(c);
+  const raw = Number(c.req.query('limit') ?? 20);
+  const limit = Number.isFinite(raw) ? Math.min(Math.max(Math.trunc(raw), 1), 50) : 20;
+  const rows = await repo.listRecentEvents(getDb(c), p.userId, limit);
+  return c.json({
+    events: rows.map((e) => ({
+      event_id: e.id,
+      event_type: e.type,
+      agent: e.agent,
+      host: e.host,
+      summary: e.summary,
+      run_id: e.runId,
+      timestamp: rfc3339(e.eventTimestamp),
+    })),
+  });
+});
+
 meRoutes.delete('/api/me/machines/:id', firebaseAuth, requireVerified, async (c) => {
   const p = getPrincipal(c);
   if (p.kind !== 'user') return unauthorized(c);

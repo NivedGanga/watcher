@@ -121,9 +121,20 @@ export interface PendingDevice {
   expires_at: string;
 }
 
+export interface RecentEvent {
+  event_id: string;
+  event_type: string;
+  agent: string;
+  host: string;
+  summary: string;
+  run_id: string;
+  timestamp: string;
+}
+
 export interface UserApi {
   me(): Promise<MeResponse>;
   setNotifications(enabled: boolean): Promise<NotificationsResponse>;
+  recentEvents(limit?: number): Promise<{ events: RecentEvent[] }>;
   deleteMe(): Promise<void>;
   machines(): Promise<Machine[]>;
   deleteMachine(id: string): Promise<void>;
@@ -143,6 +154,7 @@ export function createUserApi(baseUrl: string, getToken: () => Promise<string>):
   return {
     me: () => call('/api/me', 'GET'),
     setNotifications: (enabled) => call('/api/me/notifications', 'PUT', { enabled }),
+    recentEvents: (limit = 20) => call(`/api/me/events?limit=${limit}`, 'GET'),
     deleteMe: () => call('/api/me', 'DELETE'),
     machines: () => call('/api/me/machines', 'GET'),
     deleteMachine: (id) => call(`/api/me/machines/${encodeURIComponent(id)}`, 'DELETE'),

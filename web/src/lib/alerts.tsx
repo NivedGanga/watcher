@@ -15,10 +15,15 @@ const MAX_RECENT = 20;
 
 export interface AlertsState {
   alerts: AlertItem[];
-  add(alert: AlertData): void;
+  add(alert: AlertItem): void;
+  seed(items: AlertItem[]): void;
 }
 
-const AlertsContext = createContext<AlertsState>({ alerts: [], add: () => undefined });
+const AlertsContext = createContext<AlertsState>({
+  alerts: [],
+  add: () => undefined,
+  seed: () => undefined,
+});
 
 export function useAlerts(): AlertsState {
   return useContext(AlertsContext);
@@ -36,16 +41,25 @@ export function toAlertItem(d: AlertData): AlertItem {
   };
 }
 
-// In-memory recent-alerts store: last 20 from this session only, fed by
-// foreground messages and notification clicks.
+// In-memory recent-alerts store: last 20, seeded from server history on
+// load and fed live by foreground messages and notification clicks.
 export function AlertsProvider({ children }: { children: ReactNode }) {
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
-  const add = useCallback((d: AlertData) => {
+  const add = useCallback((d: AlertItem) => {
     setAlerts((prev) => {
-      const item = toAlertItem(d);
-      const rest = prev.filter((a) => a.event_id !== item.event_id);
-      return [item, ...rest].slice(0, MAX_RECENT);
+      const rest = prev.filter((a) => a.event_id !== d.event_id);
+      return [d, ...rest].slice(0, MAX_RECENT);
     });
   }, []);
-  return <AlertsContext.Provider value={{ alerts, add }}>{children}</AlertsContext.Provider>;
+  const seed = useCallback((items: AlertItem[]) => {
+    setAlerts((prev) => {
+      const seen = new Set<string>();
+      return [...items, ...prev]
+        .filter((a) => (seen.has(a.event_id) ? false : (seen.add(a.event_id), true)))
+        .slice(0, MAX_RECENT);
+    });
+  }, []);
+  return (
+    <AlertsContext.Provider value={{ alerts, add, seed }}>{children}</AlertsContext.Provider>
+  );
 }

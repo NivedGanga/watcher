@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAlerts } from '../lib/alerts';
+import { useApi } from '../lib/ApiContext';
 import {
   listenForeground,
   registerPushServiceWorker,
@@ -16,9 +17,14 @@ import { AccountSection } from '../components/AccountSection';
 import { InstallButton } from '../components/InstallButton';
 
 export function DashboardPage() {
-  const { add } = useAlerts();
+  const { add, seed } = useAlerts();
+  const api = useApi();
   const [params] = useSearchParams();
   const openedAlert = params.get('alert');
+
+  useEffect(() => {
+    api.recentEvents(20).then((r) => seed(r.events)).catch(() => undefined);
+  }, [api, seed]);
 
   useEffect(() => {
     if (pushSupport() === 'ok') {

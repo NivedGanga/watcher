@@ -513,6 +513,17 @@ export async function getEvent(db: Q, userId: string, id: string): Promise<Event
   return unpack<EventRow>(doc);
 }
 
+export async function listRecentEvents(
+  db: Q,
+  userId: string,
+  limit: number,
+): Promise<EventRow[]> {
+  const docs = await col(db, 'events')
+    .find({ userId }, { sort: { receivedAt: -1 }, limit, ...S(db) })
+    .toArray();
+  return docs.map((d) => unpack<EventRow>(d)!);
+}
+
 export async function deleteOldEvents(db: Q, cutoff: Date): Promise<void> {
   const stale = await col(db, 'events')
     .find({ receivedAt: { $lt: cutoff } }, { projection: { userId: 1, id: 1 }, ...S(db) })
