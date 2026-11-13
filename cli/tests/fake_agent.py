@@ -3,7 +3,7 @@
 
 Usage: fake_agent.py SCENARIO_JSON
 Delays are multiplied by the TIME_SCALE env var (default 1.0).
-Questions invoke `agentwatch ask` and block on stdin for the answer.
+Questions invoke `snitch ask` and block on stdin for the answer.
 """
 
 import json
@@ -34,7 +34,7 @@ def main() -> int:
             prompt = step["question"]
             print(prompt, flush=True)
             subprocess.run(
-                [sys.executable, "-m", "agentwatch", "ask", prompt],
+                [sys.executable, "-m", "snitch", "ask", prompt],
                 check=False,
             )
             # Block for the answer; the harness writes it (or not).

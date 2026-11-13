@@ -3,9 +3,9 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "agentwatch"
-version = "0.1.3"
-description = "Wrap agent processes, queue events locally, and report them to the AgentWatch server."
+name = "snitch"
+version = "0.1.6"
+description = "Wrap agent processes, queue events locally, and report them to the Snitch server."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
@@ -14,6 +14,7 @@ classifiers = [
     "Environment :: Console",
     "Intended Audience :: Developers",
     "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
@@ -26,7 +27,8 @@ dependencies = []
 dev = ["pytest", "jsonschema", "build"]
 
 [project.scripts]
-agentwatch = "agentwatch.cli:main"
+snitch = "snitch.cli:main"
+agentwatch = "snitch.cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
@@ -35,7 +37,7 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.setuptools.package-data]
-agentwatch = ["data/*"]
+snitch = ["data/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

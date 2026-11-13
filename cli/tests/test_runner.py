@@ -1,7 +1,6 @@
-"""End-to-end `agentwatch run` tests + all spec scenario fixtures."""
+"""End-to-end `snitch run` tests + all spec scenario fixtures."""
 
 import json
-import os
 import subprocess
 import sys
 import threading
@@ -9,7 +8,8 @@ import time
 
 import pytest
 
-from agentwatch.config import sanitize_hostname
+from snitch.config import sanitize_hostname
+from snitch.store import pid_alive
 from conftest import (
     FAKE_AGENT,
     SPEC_DIR,
@@ -17,6 +17,7 @@ from conftest import (
     outbox_signals,
     run_cli,
     run_cli_blocking,
+    wait_for,
 )
 
 SCEN_DIR = SPEC_DIR / "fixtures" / "scenarios"
@@ -32,7 +33,7 @@ def _events_tuples(env):
 
 def test_run_exit_zero_done(env):
     rc, out, _ = run_cli_blocking(
-        ["run", "--name", "demo", "--", "python3", "-c", "print('hi')"], env
+        ["run", "--name", "demo", "--", sys.executable, "-c", "print('hi')"], env
     )
     assert rc == 0
     assert "hi" in out  # output passed through unchanged
@@ -53,19 +54,19 @@ def test_run_never_sends_command_or_started(env):
     run_cli_blocking(
         [
             "run", "--name", "demo", "--",
-            "python3", "-c", "print('MARKER_CMD')",
+            sys.executable, "-c", "print('MARKER_CMD')",
         ],
         env,
     )
     for e in outbox_events(env):
         assert e["type"] != "started"
         assert "MARKER_CMD" not in json.dumps(e)
-        assert "python3" not in json.dumps(e)
+        assert sys.executable not in e["summary"]
 
 
 def test_run_exit_nonzero_failed(env):
     rc, _, _ = run_cli_blocking(
-        ["run", "--name", "demo", "--", "python3", "-c",
+        ["run", "--name", "demo", "--", sys.executable, "-c",
          "import sys; sys.exit(7)"],
         env,
     )
@@ -78,9 +79,10 @@ def test_run_exit_nonzero_failed(env):
     assert e["exit_code"] == 7
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX signals")
 def test_run_sigkill_failed(env):
     rc, _, _ = run_cli_blocking(
-        ["run", "--name", "demo", "--", "python3", "-c",
+        ["run", "--name", "demo", "--", sys.executable, "-c",
          "import os,signal,time;time.sleep(0.2);os.kill(os.getpid(),9)"],
         env,
     )
@@ -98,7 +100,7 @@ def test_run_notify_done_false(env):
         "[agents.quiet]\nnotify_done = false\n"
     )
     rc, _, _ = run_cli_blocking(
-        ["run", "--name", "quiet", "--", "python3", "-c", "pass"], env
+        ["run", "--name", "quiet", "--", sys.executable, "-c", "pass"], env
     )
     assert rc == 0
     (e,) = outbox_events(env)
@@ -110,25 +112,26 @@ def test_run_timeout_kills_grandchild(env):
     pidfile = env["tmp"] / "grandchild.pid"
     script = (
         "import subprocess,time,sys;"
-        f"g=subprocess.Popen(['sleep','60']);"
+        "g=subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)']);"
         f"open(r'{pidfile}','w').write(str(g.pid));"
         "time.sleep(60)"
     )
     rc, _, _ = run_cli_blocking(
         ["run", "--name", "demo", "--timeout", "1s", "--",
-         "python3", "-c", script],
+         sys.executable, "-c", script],
         env,
         timeout=30,
     )
-    assert rc in (128 + 15, 128 + 9)
+    assert rc != 0
+    if sys.platform != "win32":
+        assert rc in (128 + 15, 128 + 9)
     (e,) = outbox_events(env)
     assert e["type"] == "timed_out"
     assert e["blocking"] is True
     assert e["email_allowed"] is True
     assert e["summary"] == "demo exceeded its timeout of 1s."
     gpid = int(pidfile.read_text())
-    with pytest.raises(ProcessLookupError):
-        os.kill(gpid, 0)
+    assert wait_for(lambda: not pid_alive(gpid))
 
 
 def test_run_stall_once_no_kill(env):
@@ -139,7 +142,7 @@ def test_run_stall_once_no_kill(env):
     )
     rc, _, _ = run_cli_blocking(
         ["run", "--name", "demo", "--stall", "1s", "--timeout", "20s", "--",
-         "python3", "-c", script],
+         sys.executable, "-c", script],
         env,
         timeout=40,
     )
@@ -153,10 +156,11 @@ def test_run_stall_once_no_kill(env):
     assert stalled["email_allowed"] is True
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX signals")
 def test_run_forwards_sigterm_to_child_group(env):
     proc = run_cli(
         ["run", "--name", "demo", "--",
-         "python3", "-c", "import time;time.sleep(30)"],
+         sys.executable, "-c", "import time;time.sleep(30)"],
         env,
     )
     time.sleep(0.5)
@@ -175,9 +179,9 @@ def test_output_seen_throttled(env):
         )
     )
     rc, _, _ = run_cli_blocking(
-        ["run", "--name", "demo", "--", "python3", "-c", script],
+        ["run", "--name", "demo", "--", sys.executable, "-c", script],
         env,
-        extra_env={"AGENTWATCH_OUTPUT_SIGNAL_INTERVAL": "1.0"},
+        extra_env={"SNITCH_OUTPUT_SIGNAL_INTERVAL": "1.0"},
     )
     assert rc == 0
     sigs = [s for s in outbox_signals(env) if s["kind"] == "output_seen"]
@@ -217,7 +221,7 @@ def test_metadata_mode_hides_text(env):
         '[general]\nprivacy_mode = "metadata"\n'
     )
     rc, _, _ = run_cli_blocking(
-        ["run", "--name", "demo", "--", "python3", "-c",
+        ["run", "--name", "demo", "--", sys.executable, "-c",
          "print('SECRET-OUTPUT-XYZ')"],
         env,
     )
@@ -227,7 +231,7 @@ def test_metadata_mode_hides_text(env):
     for blob in blobs:
         assert "SECRET-OUTPUT-XYZ" not in blob
         assert "SECRET-QUESTION-XYZ" not in blob
-        assert "python3" not in blob
+        assert sys.executable not in blob
     summaries = {e["type"]: e["summary"] for e in outbox_events(env)}
     assert summaries["done"] == "Finished: demo"
     assert summaries["question"] == f"Question from {sanitize_hostname()}"
@@ -253,6 +257,8 @@ def _answer_and_close(proc, delay: float):
 )
 def test_scenario(scenario_path, env):
     scenario = json.loads(scenario_path.read_text())
+    if sys.platform == "win32" and any("signal" in step for step in scenario["steps"]):
+        pytest.skip("POSIX signals")
     params = scenario["params"]
     timeout_s = params["run_timeout_s"] * SCALE
     stall_s = params["stall_after_s"] * SCALE

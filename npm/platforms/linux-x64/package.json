@@ -1,11 +1,11 @@
 {
-  "name": "agentwatch-tool-linux-x64",
-  "version": "0.1.3",
-  "description": "Prebuilt agentwatch binary for linux x64",
+  "name": "snitch-tool-linux-x64",
+  "version": "0.1.6",
+  "description": "Prebuilt snitch binary for linux x64",
   "license": "Apache-2.0",
   "os": ["linux"],
   "cpu": ["x64"],
-  "files": ["bin"],
+  "files": ["bin/snitch"],
   
   "repository": {
     "type": "git",

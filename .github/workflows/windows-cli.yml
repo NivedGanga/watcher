@@ -1,0 +1,36 @@
+name: Windows CLI
+
+on:
+  pull_request:
+    paths: ['cli/**', 'npm/**', 'spec/**', '.github/workflows/*cli*.yml', '.github/workflows/npm-release.yml']
+  push:
+    paths: ['cli/**', 'npm/**', 'spec/**', '.github/workflows/*cli*.yml', '.github/workflows/npm-release.yml']
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Test native CLI
+        run: |
+          python -m pip install -e './cli[dev]'
+          python -m pytest cli/tests
+      - name: Build native executable
+        run: ./npm/build-windows.ps1
+      - name: Verify npm command
+        run: |
+          $binary = npm.cmd pack ./npm/platforms/win32-x64 --silent
+          $launcher = npm.cmd pack ./npm/snitch --silent
+          $prefix = "$env:RUNNER_TEMP/snitch-npm"
+          npm.cmd install --global --prefix $prefix "./$binary" "./$launcher"
+          & "$prefix/snitch.cmd" --version
+          $env:SNITCH_CONFIG_DIR = "$env:RUNNER_TEMP/snitch-config"
+          $env:SNITCH_DATA_DIR = "$env:RUNNER_TEMP/snitch-data"
+          $output = & "$prefix/snitch.cmd" run --name smoke -- python -c 'print(12345)'
+          if ($LASTEXITCODE -ne 0 -or $output -ne '12345') { throw "Unexpected smoke test output: $output" }

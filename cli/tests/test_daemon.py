@@ -2,10 +2,10 @@
 
 import os
 
-from agentwatch import events
-from agentwatch.daemon import Daemon, IdleDetector
-from agentwatch.delivery import Sender
-from agentwatch.redact import Redactor
+from snitch import events
+from snitch.daemon import Daemon, IdleDetector
+from snitch.delivery import Sender
+from snitch.redact import Redactor
 
 
 class FakeClock:
@@ -84,8 +84,8 @@ def test_tick_drains_outbox(env, store, backend, logged_in):
 
 def test_daemon_requires_key(env, store, config):
     # cli-level guard: daemon refuses without a key.
-    from agentwatch import machinekey
+    from snitch import machinekey
 
     assert machinekey.permission_error() == (
-        "Not logged in. Run: agentwatch login"
+        "Not logged in. Run: snitch login"
     )

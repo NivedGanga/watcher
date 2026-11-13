@@ -3,8 +3,8 @@
 import json
 import time
 
-from agentwatch import events
-from agentwatch.store import Store, pid_alive
+from snitch import events
+from snitch.store import Store, pid_alive
 
 
 

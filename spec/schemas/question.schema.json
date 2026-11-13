@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Snitch mobile question creation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "agent", "run_id", "host", "prompt", "options", "allow_text", "timeout_s"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"},
+    "agent": {"type": "string", "minLength": 1, "maxLength": 64},
+    "run_id": {"type": "string", "minLength": 1, "maxLength": 64},
+    "host": {"type": "string", "minLength": 1, "maxLength": 128},
+    "prompt": {"type": "string", "minLength": 1, "maxLength": 4000},
+    "options": {
+      "type": "array", "maxItems": 8,
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["id", "label"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$"},
+          "label": {"type": "string", "minLength": 1, "maxLength": 200}
+        }
+      }
+    },
+    "allow_text": {"type": "boolean"},
+    "timeout_s": {"type": "integer", "minimum": 1, "maximum": 86400}
+  }
+}

@@ -1,7 +1,7 @@
 name: npm-release
 
-# Build platform binaries with PyInstaller and publish @agentwatch/* + the
-# `agentwatch` launcher package. Trigger by pushing a tag like `npm-v0.1.0`
+# Build platform binaries with PyInstaller and publish snitch-tool-* + the
+# `snitch-tool` launcher package. Trigger by pushing a tag like `npm-v0.1.0`
 # or running the workflow manually. Requires the NPM_TOKEN repo secret.
 on:
   workflow_dispatch:
@@ -18,10 +18,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { runner: macos-14,       target: darwin-arm64 }
-          - { runner: macos-13,       target: darwin-x64 }
+          - { runner: macos-15,       target: darwin-arm64 }
+          - { runner: macos-15-intel, target: darwin-x64 }
           - { runner: ubuntu-latest,  target: linux-x64 }
           - { runner: ubuntu-24.04-arm, target: linux-arm64 }
+          - { runner: windows-latest, target: win32-x64 }
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
@@ -29,11 +30,16 @@ jobs:
         with:
           python-version: "3.12"
       - name: Build binary
+        if: runner.os != 'Windows'
         run: bash npm/build.sh
+      - name: Build Windows binary
+        if: runner.os == 'Windows'
+        run: ./npm/build-windows.ps1
       - uses: actions/upload-artifact@v4
         with:
           name: bin-${{ matrix.target }}
-          path: npm/platforms/${{ matrix.target }}/bin/agentwatch
+          path: npm/platforms/${{ matrix.target }}/bin/
+          if-no-files-found: error
 
   publish:
     needs: build-binaries
@@ -50,11 +56,13 @@ jobs:
 
       - name: Resolve version
         id: v
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
           if [ "${{ github.event_name }}" = "push" ]; then
             echo "version=${GITHUB_REF_NAME#npm-v}" >> "$GITHUB_OUTPUT"
           else
-            echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+            echo "version=$INPUT_VERSION" >> "$GITHUB_OUTPUT"
           fi
 
       - uses: actions/download-artifact@v4
@@ -66,15 +74,22 @@ jobs:
           for d in bin-*; do
             t="${d#bin-}"
             mkdir -p "npm/platforms/$t/bin"
-            cp "$d/agentwatch" "npm/platforms/$t/bin/agentwatch"
-            chmod +x "npm/platforms/$t/bin/agentwatch"
+            cp "$d"/snitch* "npm/platforms/$t/bin/"
+            if [ "$t" != "win32-x64" ]; then
+              chmod +x "npm/platforms/$t/bin/snitch"
+            fi
           done
 
       - name: Stamp versions
+        env:
+          RELEASE_VERSION: ${{ steps.v.outputs.version }}
         run: |
-          for p in npm/platforms/*/package.json npm/agentwatch/package.json; do
-            npm version "${{ steps.v.outputs.version }}" --no-git-tag-version \
+          for p in npm/platforms/*/package.json npm/snitch/package.json; do
+            npm version "$RELEASE_VERSION" --no-git-tag-version \
               --prefix "$(dirname "$p")" --allow-same-version
+          done
+          for t in npm/platforms/*; do
+            npm pkg set "optionalDependencies.snitch-tool-${t##*/}=$RELEASE_VERSION" --prefix npm/snitch
           done
 
       - name: Publish platform packages
@@ -88,4 +103,4 @@ jobs:
       - name: Publish launcher
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish npm/agentwatch --access public --provenance
+        run: npm publish npm/snitch --access public --provenance

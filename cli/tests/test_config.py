@@ -3,7 +3,7 @@
 
 import pytest
 
-from agentwatch.config import (
+from snitch.config import (
     ConfigError,
     load,
     parse_duration,
@@ -50,7 +50,7 @@ def test_backend_url_must_be_https(env, monkeypatch):
 
 
 def test_backend_url_localhost_allowed_in_dev(env, monkeypatch):
-    monkeypatch.setenv("AGENTWATCH_DEV", "1")
+    monkeypatch.setenv("SNITCH_DEV", "1")
     cfg_path = env["config_dir"] / "config.toml"
     env["config_dir"].mkdir(parents=True)
     cfg_path.write_text(
@@ -76,7 +76,7 @@ def test_backend_url_env_override_only_in_dev(env, monkeypatch):
     cfg_path.write_text(
         '[general]\nbackend_url = "https://agentwatch-api-alpha.vercel.app"\n'
     )
-    monkeypatch.setenv("AGENTWATCH_BACKEND_URL", "http://127.0.0.1:1")
+    monkeypatch.setenv("SNITCH_BACKEND_URL", "http://127.0.0.1:1")
     cfg = load(cfg_path)
     # Not in dev mode: override ignored.
     assert cfg.backend_url == "https://agentwatch-api-alpha.vercel.app"

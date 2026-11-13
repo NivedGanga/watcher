@@ -2,9 +2,9 @@
 
 
 
-from agentwatch import commands, events
-from agentwatch.config import load
-from agentwatch.redact import Redactor
+from snitch import commands, events
+from snitch.config import load
+from snitch.redact import Redactor
 from conftest import outbox_events, run_cli_blocking
 
 
@@ -88,13 +88,22 @@ def test_ask_done_no_network_without_login(env):
     assert types == ["question", "done"]
 
 
+def test_ask_defaults_agent_to_host_name(env, config):
+    """Unwrapped signals report the machine name (agent == host)."""
+    rc, _, _ = run_cli_blocking(["ask", "q?"], env)
+    assert rc == 0
+    (e,) = outbox_events(env)
+    assert e["agent"] == config.host_name
+    assert e["agent"] == e["host"]
+
+
 def test_ask_inside_run_uses_env_identity(env):
     rc, _, _ = run_cli_blocking(
         ["ask", "continue?"],
         env,
         extra_env={
-            "AGENTWATCH_RUN_ID": "run-abc",
-            "AGENTWATCH_AGENT": "myagent",
+            "SNITCH_RUN_ID": "run-abc",
+            "SNITCH_AGENT": "myagent",
         },
     )
     assert rc == 0

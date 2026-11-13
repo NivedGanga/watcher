@@ -5,13 +5,13 @@ import time
 
 import jsonschema
 
-from agentwatch import events
-from agentwatch.delivery import (
+from snitch import events
+from snitch.delivery import (
     AUTH_REJECTED_MESSAGE,
     Sender,
     housekeeping,
 )
-from agentwatch.httpclient import NetworkError
+from snitch.httpclient import NetworkError
 from conftest import SPEC_DIR, read_outbox
 
 SCHEMAS = {}
@@ -23,7 +23,7 @@ for _name in ("event", "signal", "heartbeat"):
 
 
 def _redactor():
-    from agentwatch.redact import Redactor
+    from snitch.redact import Redactor
 
     return Redactor()
 
@@ -187,7 +187,7 @@ def test_outbox_restart_no_duplicates(env, store, backend, logged_in):
     """Survives a restart: pending sends after recovery, no duplicates."""
     _enqueue(store)
     store.close()
-    from agentwatch.store import Store
+    from snitch.store import Store
 
     store2 = Store()
     Sender(store2, logged_in).drain()

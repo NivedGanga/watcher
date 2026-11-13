@@ -7,8 +7,8 @@ import json
 
 import pytest
 
-from agentwatch import events
-from agentwatch.redact import Redactor, load_patterns
+from snitch import events
+from snitch.redact import Redactor, load_patterns
 
 from conftest import read_outbox
 
@@ -53,7 +53,7 @@ def test_pattern_redacts_everywhere(env, store, config, name, secret):
 @pytest.mark.parametrize("name,secret", SECRETS[:8], ids=[s for s, _ in SECRETS[:8]])
 def test_pattern_in_request_body(env, store, backend, logged_in, name, secret):
     """The secret must not appear in what gets POSTed either."""
-    from agentwatch.delivery import Sender
+    from snitch.delivery import Sender
 
     redactor = Redactor()
     events.enqueue_event(

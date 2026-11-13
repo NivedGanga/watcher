@@ -1,4 +1,4 @@
-"""In-process fake AgentWatch backend for tests (http.server, no real net).
+"""In-process fake Snitch backend for tests (http.server, no real net).
 
 Implements: POST /api/device/start, /api/device/token, /api/events,
 /api/signals, /api/heartbeat, /api/machines/current/test,

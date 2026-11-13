@@ -1,4 +1,4 @@
-# NOTES — agentwatch CLI
+# NOTES — snitch CLI
 
 Implementation notes, ambiguities, decisions, deviations, and known gaps.
 
@@ -17,12 +17,12 @@ None requiring code changes; see Deviations for judgement calls.
   (confirm)*; the prompt gives `--stall 15m` default plus per-agent `stall`
   in config. The prompt wins; the wire semantics are unchanged.
 - **The one-minute tick lives on the server.** Silence detection, email
-  fallback, reminders, grouping close-out, auto-off, and the hard cap all run
+  fallback, reminders, and grouping close-out all run
   in `POST /api/jobs/tick` server-side. The CLI only reports; it has no
-  scheduler for those rules.
+  scheduler for those rules. Computer activity signals never disable phone alerts.
 - **"Question outstanding" vs stall.** SPEC.md suppresses `stalled` while a
   question is outstanding for the run. The CLI tracks this with a
-  `question_open_at` column on the runs table: `agentwatch ask` sets it, and
+  `question_open_at` column on the runs table: `snitch ask` sets it, and
   output observed ≥1s after it was set clears it (the 1s grace covers the
   question prompt itself still sitting in the pty buffer). A question is
   therefore "outstanding" until the agent next prints — an approximation of
@@ -41,12 +41,12 @@ None requiring code changes; see Deviations for judgement calls.
   desired end state already holds).
 - **Ctrl-C during login** exits 130 with "Login cancelled." and makes no
   network call.
-- **`agentwatch test` run_id** is `test-<uuid4>` per invocation; the run_id
+- **`snitch test` run_id** is `test-<uuid4>` per invocation; the run_id
   uniqueness also keeps the server's 10-minute dedup from collapsing repeat
   tests into `duplicate` results.
-- **Env overrides.** `AGENTWATCH_CONFIG_DIR` and `AGENTWATCH_DATA_DIR`
+- **Env overrides.** `SNITCH_CONFIG_DIR` and `SNITCH_DATA_DIR`
   override the default paths (used by the test suite; XDG vars are honored
-  too). `AGENTWATCH_OUTPUT_SIGNAL_INTERVAL` shortens the 30s output_seen
+  too). `SNITCH_OUTPUT_SIGNAL_INTERVAL` shortens the 30s output_seen
   throttle for tests.
 
 ## Known gaps

@@ -1,0 +1,28 @@
+{
+  "name": "snitch-tool",
+  "version": "0.1.6",
+  "description": "Wrap terminal agents and get push/email alerts on completion, failure, questions, timeouts, and stalls.",
+  "license": "Apache-2.0",
+  "keywords": ["agent", "monitoring", "alerts", "cli", "devtools"],
+  "bin": {
+    "snitch": "bin/snitch.cjs",
+    "agentwatch": "bin/snitch.cjs"
+  },
+  "files": ["bin"],
+  "os": ["darwin", "linux", "win32"],
+  "engines": {
+    "node": ">=16"
+  },
+  "optionalDependencies": {
+    "snitch-tool-darwin-arm64": "0.1.6",
+    "snitch-tool-darwin-x64": "0.1.6",
+    "snitch-tool-linux-x64": "0.1.6",
+    "snitch-tool-linux-arm64": "0.1.6",
+    "snitch-tool-win32-x64": "0.1.6"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NivedGanga/watcher.git",
+    "directory": "npm/snitch"
+  }
+}

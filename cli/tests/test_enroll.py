@@ -2,10 +2,13 @@
 
 import os
 import stat
+import sys
+
+import pytest
 
 
-from agentwatch import machinekey
-from agentwatch.enroll import login, logout
+from snitch import machinekey
+from snitch.enroll import login, logout
 
 
 def _run_login(config, store, **kw):
@@ -40,13 +43,15 @@ def test_login_happy_path(env, store, backend, config):
     # Key written, machine_id recorded, key never printed.
     key_path = env["config_dir"] / "machine.key"
     assert key_path.exists()
-    secret = key_path.read_text()
+    secret = machinekey.read_key()
+    assert secret
     assert secret not in text + "\n".join(err)
     assert "m_test123" in text  # machine_id is ok to show
     # Test email attempted (non-fatal anyway).
     assert backend.test_emails == 1
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX permissions")
 def test_login_key_mode_0600_restrictive_umask(env, store, backend, config):
     env["config_dir"].mkdir(parents=True, exist_ok=True)
     old = os.umask(0o777)
@@ -64,14 +69,14 @@ def test_login_second_time_refused(env, store, backend, config):
     assert rc == 0
     rc2, out, err, _ = _run_login(config, store)
     assert rc2 == 1
-    assert "Already logged in. Run agentwatch logout first." in "\n".join(err)
+    assert "Already logged in. Run snitch logout first." in "\n".join(err)
 
 
 def test_login_expired_token(env, store, backend, config):
     backend.token_responses = [("error", "expired_token")]
     rc, out, err, _ = _run_login(config, store)
     assert rc == 1
-    assert "The code expired. Run agentwatch login again." in "\n".join(err)
+    assert "The code expired. Run snitch login again." in "\n".join(err)
     assert not (env["config_dir"] / "machine.key").exists()
 
 
@@ -106,15 +111,15 @@ def test_login_offers_service_install(env, store, backend, config,
     )
     assert rc == 0
     plist = (
-        tmp_path / "Library/LaunchAgents/com.agentwatch.daemon.plist"
+        tmp_path / "Library/LaunchAgents/com.snitch.daemon.plist"
     )
-    import sys
-
-    if sys.platform == "darwin":
+    if sys.platform == "win32":
+        assert any("snitch daemon" in line for line in out)
+    elif sys.platform == "darwin":
         assert plist.exists()
     else:
         assert (
-            tmp_path / ".config/systemd/user/agentwatch.service"
+            tmp_path / ".config/systemd/user/snitch.service"
         ).exists()
 
 
@@ -133,6 +138,7 @@ def test_login_yes_flag_accepts_service(env, store, backend, config,
     assert rc == 0 and not prompts
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX permissions")
 def test_key_mode_wrong_refuses(env):
     path = machinekey.write_key("aw_x_y")
     os.chmod(path, 0o644)
@@ -145,7 +151,7 @@ def test_logout_revokes(env, store, backend, logged_in):
     assert rc == 0
     assert backend.deleted_machines == 1
     assert not (env["config_dir"] / "machine.key").exists()
-    from agentwatch.config import load
+    from snitch.config import load
 
     assert load().machine_id == ""
 

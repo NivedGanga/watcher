@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "AgentWatch Signal",
+  "title": "Snitch Signal",
   "description": "A side-channel observation sent in POST /api/signals. run_id is required for output_seen and null for input_resumed; idle_seconds is input_resumed only.",
   "type": "object",
   "additionalProperties": false,

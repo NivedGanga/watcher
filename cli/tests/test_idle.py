@@ -4,8 +4,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from agentwatch import idle
-from agentwatch.daemon import IdleDetector
+from snitch import idle
+from snitch.daemon import IdleDetector
 from conftest import outbox_signals
 
 

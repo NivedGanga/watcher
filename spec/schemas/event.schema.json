@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "AgentWatch Event",
+  "title": "Snitch Event",
   "description": "An event sent by the CLI in POST /api/events. 'host_silent' is backend-created and never appears on the wire; 'started' is never sent. Unknown fields are rejected.",
   "type": "object",
   "additionalProperties": false,

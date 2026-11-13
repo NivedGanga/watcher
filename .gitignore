@@ -25,6 +25,8 @@ dist/
 __pycache__/
 # built binaries — produced by npm/build.sh or CI
 npm/platforms/*/bin/agentwatch
+npm/platforms/*/bin/snitch
+npm/platforms/*/bin/snitch.exe
 cli/dist/
 cli/build/
 *.spec

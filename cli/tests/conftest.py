@@ -27,15 +27,15 @@ from fake_backend import FakeBackend  # noqa: E402
 
 @pytest.fixture()
 def env(tmp_path, monkeypatch):
-    """Isolated AGENTWATCH_CONFIG_DIR / AGENTWATCH_DATA_DIR."""
+    """Isolated SNITCH_CONFIG_DIR / SNITCH_DATA_DIR."""
     cfg = tmp_path / "config"
     data = tmp_path / "data"
-    monkeypatch.setenv("AGENTWATCH_CONFIG_DIR", str(cfg))
-    monkeypatch.setenv("AGENTWATCH_DATA_DIR", str(data))
-    monkeypatch.delenv("AGENTWATCH_DEV", raising=False)
-    monkeypatch.delenv("AGENTWATCH_BACKEND_URL", raising=False)
-    monkeypatch.delenv("AGENTWATCH_RUN_ID", raising=False)
-    monkeypatch.delenv("AGENTWATCH_AGENT", raising=False)
+    monkeypatch.setenv("SNITCH_CONFIG_DIR", str(cfg))
+    monkeypatch.setenv("SNITCH_DATA_DIR", str(data))
+    monkeypatch.delenv("SNITCH_DEV", raising=False)
+    monkeypatch.delenv("SNITCH_BACKEND_URL", raising=False)
+    monkeypatch.delenv("SNITCH_RUN_ID", raising=False)
+    monkeypatch.delenv("SNITCH_AGENT", raising=False)
     return {"config_dir": cfg, "data_dir": data, "tmp": tmp_path}
 
 
@@ -43,15 +43,15 @@ def env(tmp_path, monkeypatch):
 def backend(env, monkeypatch):
     """Fake backend on localhost; enables dev mode + backend override."""
     be = FakeBackend()
-    monkeypatch.setenv("AGENTWATCH_DEV", "1")
-    monkeypatch.setenv("AGENTWATCH_BACKEND_URL", be.url)
+    monkeypatch.setenv("SNITCH_DEV", "1")
+    monkeypatch.setenv("SNITCH_BACKEND_URL", be.url)
     yield be
     be.close()
 
 
 @pytest.fixture()
 def store(env):
-    from agentwatch.store import Store
+    from snitch.store import Store
 
     s = Store()
     yield s
@@ -60,7 +60,7 @@ def store(env):
 
 @pytest.fixture()
 def config(env):
-    from agentwatch.config import load
+    from snitch.config import load
 
     return load()
 
@@ -68,7 +68,7 @@ def config(env):
 @pytest.fixture()
 def logged_in(env, backend, config):
     """Write a machine key + machine_id without touching the network."""
-    from agentwatch import machinekey
+    from snitch import machinekey
 
     machinekey.write_key("aw_m_test123_secretkey")
     config.set("general", "machine_id", "m_test123")
@@ -111,15 +111,15 @@ def outbox_signals(env) -> list[dict]:
 def run_cli(args: list[str], env, *, stdin=None, timeout=60, extra_env=None):
     """Run the real CLI in a subprocess (needed for `run`'s pty)."""
     full_env = dict(os.environ)
-    full_env["AGENTWATCH_CONFIG_DIR"] = str(env["config_dir"])
-    full_env["AGENTWATCH_DATA_DIR"] = str(env["data_dir"])
+    full_env["SNITCH_CONFIG_DIR"] = str(env["config_dir"])
+    full_env["SNITCH_DATA_DIR"] = str(env["data_dir"])
     full_env["PYTHONPATH"] = str(SRC) + os.pathsep + full_env.get(
         "PYTHONPATH", ""
     )
     if extra_env:
         full_env.update(extra_env)
     return subprocess.Popen(
-        [sys.executable, "-m", "agentwatch", *args],
+        [sys.executable, "-m", "snitch", *args],
         stdin=stdin,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

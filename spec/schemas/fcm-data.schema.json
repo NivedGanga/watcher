@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "AgentWatch FCM Data Payload",
+  "title": "Snitch FCM Data Payload",
   "description": "Data-only web push message. Every value is a string. Two shapes: 'alert' and 'state'.",
   "type": "object",
   "required": ["type"],
@@ -57,7 +57,7 @@
         "on": {"type": "string", "enum": ["true", "false"]},
         "until": {
           "type": "string",
-          "description": "RFC 3339 timestamp while the flag is on; empty string when off."
+          "description": "Legacy field, always an empty string. Phone alerts have no automatic expiry."
         },
         "timestamp": {"type": "string"}
       }

@@ -1,0 +1,12 @@
+# Install with `snitch install-service`, which substitutes
+# __SNITCH_EXECUTABLE__.
+[Unit]
+Description=Snitch daemon (delivers queued events and heartbeats)
+
+[Service]
+ExecStart=__SNITCH_EXECUTABLE__ daemon
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target
